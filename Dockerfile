@@ -8,7 +8,8 @@ COPY . .
 
 RUN apk add --no-cache --virtual .build-deps \
 		git
-RUN CGO_ENABLED=0 go build -o forum-api
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+	go build -a -installsuffix cgo -ldflags="-w -s" -o forum-api
 
 # 2. Building main container Ubuntu with postgres
 FROM ubuntu:18.04
