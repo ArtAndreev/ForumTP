@@ -1,17 +1,18 @@
 package queries
 
 import (
-	"database/sql"
 	"log"
+
+	"github.com/jmoiron/sqlx"
 
 	_ "github.com/lib/pq" // postgres driver
 )
 
-var db *sql.DB
+var db *sqlx.DB
 
-func InitDB(address, database string) *sql.DB {
+func InitDB(address, database string) *sqlx.DB {
 	var err error
-	db, err = sql.Open("postgres",
+	db, err = sqlx.Open("postgres",
 		"postgres://"+address+"/"+database+"?sslmode=disable")
 	if err != nil {
 		log.Panic(err)
