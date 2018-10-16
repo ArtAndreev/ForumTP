@@ -6,7 +6,7 @@ import (
 	"github.com/ArtAndreev/ForumTP/models"
 )
 
-func CreateUser(u *models.BaseForumUser) ([]models.ForumUser, error) {
+func CreateUser(u *models.ForumUser) ([]models.ForumUser, error) {
 	var res []models.ForumUser
 	// check not null constraint
 	if u.Nickname == "" || u.Email == "" {
@@ -40,10 +40,11 @@ func CreateUser(u *models.BaseForumUser) ([]models.ForumUser, error) {
 		INSERT INTO forum_user (nickname, fullname, email, about)
 		VALUES (:nickname, :fullname, :email, :about)`,
 		u)
-	res = append(res, models.ForumUser{BaseForumUser: *u})
 	if err != nil {
 		return res, err
 	}
+
+	res = append(res, *u)
 	return res, nil
 }
 
@@ -71,7 +72,7 @@ func GetUserByEmail(e string) (models.ForumUser, error) {
 	return res, nil
 }
 
-func UpdateUser(n string, u *models.BaseForumUser) (models.ForumUser, error) {
+func UpdateUser(n string, u *models.ForumUser) (models.ForumUser, error) {
 	res := models.ForumUser{}
 	tx, err := db.Beginx()
 	if err != nil {

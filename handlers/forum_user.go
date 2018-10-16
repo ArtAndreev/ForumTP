@@ -13,7 +13,7 @@ import (
 )
 
 func CreateUser(w http.ResponseWriter, r *http.Request) {
-	u := &models.BaseForumUser{}
+	u := &models.ForumUser{}
 	err := cleanBody(r, u)
 	if err != nil {
 		if err == ErrWrongJSON {
@@ -92,12 +92,11 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
 	fmt.Fprintln(w, string(j))
 }
 
 func UpdateUser(w http.ResponseWriter, r *http.Request) {
-	u := &models.BaseForumUser{}
+	u := &models.ForumUser{}
 	err := cleanBody(r, u)
 	if err != nil {
 		if err == ErrWrongJSON {

@@ -17,7 +17,7 @@ func main() {
 
 	api.HandleFunc("/forum/create", handlers.CreateForum).Methods("POST")
 	// api.HandleFunc("/forum/{slug}/create", handlers.).Methods("POST")
-	// api.HandleFunc("/forum/{slug}/details", handlers.).Methods("GET")
+	api.HandleFunc("/forum/{slug}/details", handlers.GetForum).Methods("GET")
 	// api.HandleFunc("/forum/{slug}/threads", handlers.).Methods("GET")
 	// api.HandleFunc("/forum/{slug}/users", handlers.).Methods("GET")
 
