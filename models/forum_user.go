@@ -1,7 +1,7 @@
 package models
 
 type ForumUser struct {
-	ForumUserID int `json:"-"`
+	ForumUserID int `json:"-" db:"forum_user_id"`
 	BaseForumUser
 }
 

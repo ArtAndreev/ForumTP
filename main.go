@@ -13,6 +13,7 @@ import (
 func main() {
 	r := mux.NewRouter()
 	api := r.PathPrefix("/api").Subrouter()
+	api.Use(handlers.ApplicationJsonMiddleware)
 
 	api.HandleFunc("/forum/create", handlers.CreateForum).Methods("POST")
 	// api.HandleFunc("/forum/{slug}/create", handlers.).Methods("POST")
@@ -33,8 +34,8 @@ func main() {
 	// api.HandleFunc("/thread/{slug_or_id}/vote", handlers.).Methods("POST")
 
 	api.HandleFunc("/user/{nickname}/create", handlers.CreateUser).Methods("POST")
-	// api.HandleFunc("/user/{nickname}/profile", handlers.).Methods("GET")
-	// api.HandleFunc("/user/{nickname}/profile", handlers.).Methods("POST")
+	api.HandleFunc("/user/{nickname}/profile", handlers.GetUser).Methods("GET")
+	api.HandleFunc("/user/{nickname}/profile", handlers.UpdateUser).Methods("POST")
 
 	db := queries.InitDB("postgres@localhost:5432", "docker")
 	defer db.Close()

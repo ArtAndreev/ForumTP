@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -12,7 +13,6 @@ import (
 )
 
 func CreateUser(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
 	u := &models.BaseForumUser{}
 	err := cleanBody(r, u)
 	if err != nil {
@@ -21,24 +21,119 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	u.Nickname = vars["nickname"]
+	u.Nickname = mux.Vars(r)["nickname"]
 
-	err = queries.CreateUser(u)
+	res, err := queries.CreateUser(u)
 	if err != nil {
-		// better handling...
-		w.WriteHeader(http.StatusInternalServerError)
+		switch err.(type) {
+		case *queries.UniqueFieldValueAlreadyExistsError:
+			j, err := json.Marshal(res)
+			if err != nil {
+				log.Println(err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusConflict)
+			fmt.Fprintln(w, string(j))
+		default:
+			log.Println(err)
+			w.WriteHeader(http.StatusInternalServerError)
+		}
 		return
 	}
 
-	j, err := json.Marshal(u)
+	// if record has been inserted successfully
+	j, err := json.Marshal(res[0])
 	if err != nil {
+		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
+	fmt.Fprintln(w, string(j))
+}
+
+func GetUser(w http.ResponseWriter, r *http.Request) {
+	res, err := queries.GetUserByNickname(mux.Vars(r)["nickname"])
+	if err != nil {
+		switch err.(type) {
+		case *queries.RecordNotFoundError:
+			j, jErr := json.Marshal(models.ErrorMessage{Message: err.Error()})
+			if jErr != nil {
+				log.Println(err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprintln(w, string(j))
+		default:
+			log.Println(err)
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	j, jErr := json.Marshal(res)
+	if jErr != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintln(w, string(j))
+}
+
+func UpdateUser(w http.ResponseWriter, r *http.Request) {
+	u := &models.BaseForumUser{}
+	err := cleanBody(r, u)
+	if err != nil {
+		if err == ErrWrongJSON {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	res, err := queries.UpdateUser(mux.Vars(r)["nickname"], u)
+	if err != nil {
+		switch err.(type) {
+		case *queries.RecordNotFoundError:
+			j, jErr := json.Marshal(models.ErrorMessage{Message: err.Error()})
+			if jErr != nil {
+				log.Println(err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprintln(w, string(j))
+		case *queries.UniqueFieldValueAlreadyExistsError:
+			j, jErr := json.Marshal(models.ErrorMessage{Message: err.Error()})
+			if jErr != nil {
+				log.Println(err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusConflict)
+			fmt.Fprintln(w, string(j))
+		default:
+			log.Println(err)
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	j, err := json.Marshal(res)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	fmt.Fprintln(w, string(j))
 }
