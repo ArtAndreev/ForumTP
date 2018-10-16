@@ -48,6 +48,7 @@ USER root
 # 3. Add forum API server in main cointainer
 WORKDIR /app
 COPY --from=builder /src/forum-api .
+COPY --from=builder /src/migrations ./migrations
 
 # 4. Start PostgreSQL and forum API server
 EXPOSE 5000
