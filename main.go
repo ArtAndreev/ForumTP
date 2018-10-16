@@ -37,7 +37,7 @@ func main() {
 	api.HandleFunc("/user/{nickname}/profile", handlers.GetUser).Methods("GET")
 	api.HandleFunc("/user/{nickname}/profile", handlers.UpdateUser).Methods("POST")
 
-	db := queries.InitDB("postgres@localhost:5432", "docker")
+	db := queries.InitDB("docker:docker@localhost:5432", "docker")
 	defer db.Close()
 	queries.MakeMigrations(db)
 
