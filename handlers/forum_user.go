@@ -30,6 +30,15 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	res, err := queries.CreateUser(u)
 	if err != nil {
 		switch err.(type) {
+		case *queries.NullFieldError:
+			j, jErr := json.Marshal(models.ErrorMessage{Message: err.Error()})
+			if jErr != nil {
+				log.Println(err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintln(w, string(j))
 		case *queries.UniqueFieldValueAlreadyExistsError:
 			j, err := json.Marshal(res)
 			if err != nil {

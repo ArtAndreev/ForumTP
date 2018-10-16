@@ -19,6 +19,11 @@ type NoRowsAffectedError struct {
 	Field string
 }
 
+type NullFieldError struct {
+	Model string
+	Field string
+}
+
 func (s UniqueFieldValueAlreadyExistsError) Error() string {
 	return fmt.Sprintf("%s error: record with this %s already exists", s.Model, s.Field)
 }
@@ -29,4 +34,8 @@ func (s RecordNotFoundError) Error() string {
 
 func (s NoRowsAffectedError) Error() string {
 	return fmt.Sprintf(`%s error: no rows affected with parameter "%s"`, s.Model, s.Field)
+}
+
+func (s NullFieldError) Error() string {
+	return fmt.Sprintf(`%s error: %s is NULL`, s.Model, s.Field)
 }

@@ -8,6 +8,11 @@ import (
 
 func CreateUser(u *models.BaseForumUser) ([]models.ForumUser, error) {
 	var res []models.ForumUser
+	// check not null constraint
+	if u.Nickname == "" || u.Email == "" {
+		return res, &NullFieldError{"User", "nickname and/or email"}
+	}
+
 	r1, err := GetUserByNickname(u.Nickname)
 	if err != nil {
 		if _, ok := err.(*RecordNotFoundError); !ok {
@@ -28,7 +33,7 @@ func CreateUser(u *models.BaseForumUser) ([]models.ForumUser, error) {
 		}
 	}
 	if len(res) != 0 {
-		return res, &UniqueFieldValueAlreadyExistsError{"User", "email and/or nickname"}
+		return res, &UniqueFieldValueAlreadyExistsError{"User", "nickname and/or email"}
 	}
 
 	_, err = db.NamedExec(`
