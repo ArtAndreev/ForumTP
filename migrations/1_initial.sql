@@ -9,11 +9,11 @@ CREATE TABLE IF NOT EXISTS forum_user (
 
 CREATE TABLE IF NOT EXISTS forum (
     forum_id serial PRIMARY KEY,
-    title varchar(64) NOT NULL,
+    title varchar(128) NOT NULL,
     slug varchar(64) UNIQUE NOT NULL,
     forum_user integer REFERENCES forum_user NOT NULL,
-    threads integer,
-    posts integer
+    threads integer DEFAULT 0,
+    posts integer DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS thread (
@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS thread (
     author integer REFERENCES forum_user NOT NULL,
     created timestamp with time zone,
     message text NOT NULL,
-    votes integer 
+    votes integer DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS post (
