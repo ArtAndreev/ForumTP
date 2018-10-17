@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS thread (
     thread_id serial PRIMARY KEY,
     forum integer REFERENCES forum NOT NULL,
     slug varchar(64),
-    title varchar(64) NOT NULL,
+    title varchar(128) NOT NULL,
     author integer REFERENCES forum_user NOT NULL,
     created timestamp with time zone,
     message text NOT NULL,
