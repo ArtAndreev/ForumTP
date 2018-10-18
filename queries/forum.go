@@ -13,6 +13,7 @@ func CreateForum(f *models.Forum) (models.Forum, error) {
 		return res, &NullFieldError{"Forum", "title and/or slug and/or user"}
 	}
 
+	// check existence of forum
 	res, err := GetForumBySlug(f.Slug)
 	if err != nil {
 		if _, ok := err.(*RecordNotFoundError); !ok {
@@ -22,17 +23,21 @@ func CreateForum(f *models.Forum) (models.Forum, error) {
 		return res, &UniqueFieldValueAlreadyExistsError{"Forum", "title and/or slug"}
 	}
 
+	// check existence of user
 	u, err := GetUserByNickname(f.ForumUser)
 	if err != nil {
 		return res, err
 	}
 
+	// insert
 	_, err = db.Exec(
 		"INSERT INTO forum (title, slug, forum_user) VALUES ($1, $2, $3)",
 		f.Title, f.Slug, u.ForumUserID)
 	if err != nil {
 		return res, err
 	}
+
+	// return res
 	res = models.Forum{
 		Title:     f.Title,
 		Slug:      f.Slug,
@@ -45,7 +50,7 @@ func CreateForum(f *models.Forum) (models.Forum, error) {
 func GetForumBySlug(s string) (models.Forum, error) {
 	res := models.Forum{}
 	err := db.Get(&res, `
-		SELECT title, slug, u.nickname AS forum_user FROM forum f 
+		SELECT forum_id, title, slug, u.nickname forum_user, threads, posts FROM forum f 
 		JOIN forum_user u ON f.forum_user = u.forum_user_id 
 		WHERE lower(slug) = lower($1)`,
 		s)
