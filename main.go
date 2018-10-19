@@ -24,8 +24,8 @@ func main() {
 	// api.HandleFunc("/post/{id:[0-9]+}/details", handlers.).Methods("GET")
 	// api.HandleFunc("/post/{id:[0-9]+}/details", handlers.).Methods("POST")
 
-	// api.HandleFunc("/service/clear", handlers.).Methods("POST")
-	// api.HandleFunc("/service/status", handlers.).Methods("GET")
+	api.HandleFunc("/service/clear", handlers.ClearDatabase).Methods("POST")
+	api.HandleFunc("/service/status", handlers.GetDatabaseStatus).Methods("GET")
 
 	// api.HandleFunc("/thread/{slug_or_id}/create", handlers.).Methods("POST")
 	// api.HandleFunc("/thread/{slug_or_id}/details", handlers.).Methods("GET")
