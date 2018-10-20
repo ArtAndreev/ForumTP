@@ -1,7 +1,12 @@
 package queries
 
 import (
+	"errors"
 	"fmt"
+)
+
+var (
+	ErrParentPostIsNotInThisThread = errors.New("parent post is not found in this thread")
 )
 
 type UniqueFieldValueAlreadyExistsError struct {
