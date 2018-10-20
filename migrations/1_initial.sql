@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS post (
     post_id serial PRIMARY KEY,
     forum integer REFERENCES forum NOT NULL,
     thread integer REFERENCES thread NOT NULL,
-    parent integer,
+    parent integer DEFAULT 0,
     author integer REFERENCES forum_user NOT NULL,
     created timestamp with time zone DEFAULT now(),
     is_edited boolean DEFAULT FALSE NOT NULL,
