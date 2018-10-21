@@ -3,29 +3,19 @@ package queries
 import (
 	"database/sql"
 	"fmt"
-	"strconv"
 	"time"
+
+	"github.com/jmoiron/sqlx"
 
 	"github.com/ArtAndreev/ForumTP/models"
 )
 
 func CreatePosts(p *[]models.Post, path string) ([]models.Post, error) {
 	res := []models.Post{}
-	// get thread by slug
-	t, err := GetThreadBySlug(path)
+	// get thread by slug or id
+	t, err := GetThreadBySlugOrID(path)
 	if err != nil {
-		if _, ok := err.(*RecordNotFoundError); ok {
-			id, convErr := strconv.Atoi(path)
-			if convErr != nil {
-				return res, err
-			}
-			t, err = GetThreadByID(id)
-			if err != nil {
-				return res, err
-			}
-		} else {
-			return res, err
-		}
+		return res, err
 	}
 	// get forum
 	f, err := GetForumBySlug(t.Forum)
@@ -33,7 +23,7 @@ func CreatePosts(p *[]models.Post, path string) ([]models.Post, error) {
 		return res, err
 	}
 
-	tx, err := db.Begin()
+	tx, err := db.Beginx()
 	if err != nil {
 		return res, err
 	}
@@ -41,20 +31,21 @@ func CreatePosts(p *[]models.Post, path string) ([]models.Post, error) {
 
 	// get current time, we'll use it for all inserted messages
 	now := time.Time{}
-	err = db.Get(&now, "SELECT * FROM now()")
+	nr := tx.QueryRow("SELECT * FROM now()")
+	err = nr.Scan(&now)
 	if err != nil {
 		return res, err
 	}
 
 	for _, v := range *p {
 		// get user
-		u, err := GetUserByNickname(v.Author)
+		u, err := txGetUserByNickname(v.Author, tx)
 		if err != nil {
 			return res, err
 		}
 		// check parent message belongs to the same thread
 		if v.Parent != 0 {
-			parent, err := GetPostByID(v.Parent)
+			parent, err := txGetPostByID(v.Parent, tx)
 			switch err.(type) {
 			case *RecordNotFoundError:
 				return res, ErrParentPostIsNotInThisThread
@@ -64,25 +55,27 @@ func CreatePosts(p *[]models.Post, path string) ([]models.Post, error) {
 			}
 		}
 		// insert
-		qres, err := db.Query(`
+		qres := tx.QueryRow(`
 			INSERT INTO post (forum, thread, parent, author, created, message)
 			VALUES ($1, $2, $3, $4, $5, $6) RETURNING post_id`,
 			f.ForumID, t.ThreadID, v.Parent, u.ForumUserID, now, v.Message)
+
+		lastInsertedID := 0
+		err = qres.Scan(&lastInsertedID)
 		if err != nil {
 			return res, err
 		}
 
-		_, err = db.Exec(`
+		_, err = tx.Exec(`
 			UPDATE forum SET posts = posts + 1
 			WHERE forum_id = $1
-		`, f.ForumID)
-
-		lastInsertedID, err := getLastInsertedID(qres)
+			`, f.ForumID)
 		if err != nil {
 			return res, err
 		}
+
 		// get new res
-		last, err := GetPostByID(lastInsertedID)
+		last, err := txGetPostByID(lastInsertedID, tx)
 		if err != nil {
 			return res, err
 		}
@@ -102,7 +95,25 @@ func GetPostByID(id int) (models.Post, error) {
 		`, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return res, &RecordNotFoundError{"Thread", fmt.Sprintf("%v", id)}
+			return res, &RecordNotFoundError{"Post", fmt.Sprintf("%v", id)}
+		}
+		return res, err
+	}
+
+	return res, nil
+}
+
+func txGetPostByID(id int, tx *sqlx.Tx) (models.Post, error) {
+	res := models.Post{}
+	err := tx.Get(&res, `
+		SELECT post_id, f.slug forum, thread, parent, u.nickname author, created, is_edited, message FROM post p
+		JOIN forum f ON p.forum = f.forum_id
+		JOIN forum_user u ON p.author = u.forum_user_id
+		WHERE post_id = $1
+		`, id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return res, &RecordNotFoundError{"Post", fmt.Sprintf("%v", id)}
 		}
 		return res, err
 	}

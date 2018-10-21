@@ -3,6 +3,8 @@ package queries
 import (
 	"database/sql"
 
+	"github.com/jmoiron/sqlx"
+
 	"github.com/ArtAndreev/ForumTP/models"
 )
 
@@ -60,9 +62,33 @@ func GetUserByNickname(n string) (models.ForumUser, error) {
 	return res, nil
 }
 
+func txGetUserByNickname(n string, tx *sqlx.Tx) (models.ForumUser, error) {
+	res := models.ForumUser{}
+	err := tx.Get(&res, "SELECT * FROM forum_user WHERE lower(nickname) = lower($1)", n)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return res, &RecordNotFoundError{"User", n}
+		}
+		return res, err
+	}
+	return res, nil
+}
+
 func GetUserByEmail(e string) (models.ForumUser, error) {
 	res := models.ForumUser{}
 	err := db.Get(&res, "SELECT * FROM forum_user WHERE lower(email) = lower($1)", e)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return res, &RecordNotFoundError{"User", e}
+		}
+		return res, err
+	}
+	return res, nil
+}
+
+func txGetUserByEmail(e string, tx *sqlx.Tx) (models.ForumUser, error) {
+	res := models.ForumUser{}
+	err := tx.Get(&res, "SELECT * FROM forum_user WHERE lower(email) = lower($1)", e)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return res, &RecordNotFoundError{"User", e}
@@ -81,7 +107,7 @@ func UpdateUser(n string, u *models.ForumUser) (models.ForumUser, error) {
 	defer tx.Rollback()
 
 	// check existence of user
-	_, err = GetUserByNickname(n)
+	_, err = txGetUserByNickname(n, tx)
 	if err != nil {
 		return res, err
 	}
@@ -89,7 +115,7 @@ func UpdateUser(n string, u *models.ForumUser) (models.ForumUser, error) {
 	// update user profile
 	if u.Nickname != "" {
 		// check conflict
-		_, err = GetUserByNickname(u.Nickname)
+		_, err = txGetUserByNickname(u.Nickname, tx)
 		if err != nil {
 			if _, ok := err.(*RecordNotFoundError); !ok {
 				return res, err // db error
@@ -119,7 +145,7 @@ func UpdateUser(n string, u *models.ForumUser) (models.ForumUser, error) {
 	}
 	if u.Email != "" {
 		// check conflict
-		_, err = GetUserByEmail(u.Email)
+		_, err = txGetUserByEmail(u.Email, tx)
 		if err != nil {
 			if _, ok := err.(*RecordNotFoundError); !ok {
 				return res, err // db error

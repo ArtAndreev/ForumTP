@@ -3,7 +3,10 @@ package queries
 import (
 	"database/sql"
 	"fmt"
+	"strconv"
 	"time"
+
+	"github.com/jmoiron/sqlx"
 
 	"github.com/ArtAndreev/ForumTP/models"
 )
@@ -82,6 +85,23 @@ func GetThreadByID(id int) (models.Thread, error) {
 	return res, nil
 }
 
+func txGetThreadByID(id int, tx *sqlx.Tx) (models.Thread, error) {
+	res := models.Thread{}
+	err := tx.Get(&res, `
+		SELECT thread_id, f.slug forum, t.slug, t.title, u.nickname author, created, message, votes FROM thread t
+		JOIN forum f ON t.forum = f.forum_id
+		JOIN forum_user u ON t.author = u.forum_user_id
+		WHERE t.thread_id = $1
+		`, id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return res, &RecordNotFoundError{"Thread", fmt.Sprintf("%v", id)}
+		}
+		return res, err
+	}
+	return res, nil
+}
+
 func GetThreadBySlug(s string) (models.Thread, error) {
 	res := models.Thread{}
 	err := db.Get(&res, `
@@ -134,6 +154,25 @@ func GetAllThreadsInForum(s string, params *models.ThreadQueryParams) ([]models.
 	}
 	if err != nil {
 		return res, err
+	}
+	return res, nil
+}
+
+func GetThreadBySlugOrID(slugOrID string) (models.Thread, error) {
+	res, err := GetThreadBySlug(slugOrID)
+	if err != nil {
+		if _, ok := err.(*RecordNotFoundError); ok {
+			id, convErr := strconv.Atoi(slugOrID)
+			if convErr != nil {
+				return res, err
+			}
+			res, err = GetThreadByID(id)
+			if err != nil {
+				return res, err
+			}
+		} else {
+			return res, err
+		}
 	}
 	return res, nil
 }

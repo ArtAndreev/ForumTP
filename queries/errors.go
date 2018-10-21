@@ -9,6 +9,11 @@ var (
 	ErrParentPostIsNotInThisThread = errors.New("parent post is not found in this thread")
 )
 
+type ValidationError struct {
+	Model string
+	Field string
+}
+
 type UniqueFieldValueAlreadyExistsError struct {
 	Model string
 	Field string
@@ -27,6 +32,10 @@ type NoRowsAffectedError struct {
 type NullFieldError struct {
 	Model string
 	Field string
+}
+
+func (s ValidationError) Error() string {
+	return fmt.Sprintf("%s error: %s is not valid", s.Model, s.Field)
 }
 
 func (s UniqueFieldValueAlreadyExistsError) Error() string {
