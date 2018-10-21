@@ -39,10 +39,11 @@ CREATE TABLE IF NOT EXISTS post (
 );
 
 CREATE TABLE IF NOT EXISTS vote (
-    vote_id serial PRIMARY KEY,
     nickname integer REFERENCES forum_user UNIQUE NOT NULL,
+    thread integer REFERENCES thread NOT NULL,
     voice integer NOT NULL,
-    CONSTRAINT vote_constraint CHECK (voice IN (-1, 1))
+    CONSTRAINT vote_constraint CHECK (voice IN (-1, 1)),
+    CONSTRAINT vote_unique_all UNIQUE (nickname, thread)
 );
 
 ALTER DATABASE docker SET timezone TO 'UTC-3';
