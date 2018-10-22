@@ -145,3 +145,39 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	fmt.Fprintln(w, string(j))
 }
+
+func GetForumUsers(w http.ResponseWriter, r *http.Request) {
+	params := &models.UserQueryParams{}
+	decoder.IgnoreUnknownKeys(true)
+	err := decoder.Decode(params, r.URL.Query())
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	res, err := queries.GetAllUsersInForum(mux.Vars(r)["slug"], params)
+	if err != nil {
+		switch err.(type) {
+		case *queries.RecordNotFoundError:
+			j, jErr := json.Marshal(models.ErrorMessage{Message: err.Error()})
+			if jErr != nil {
+				log.Println(err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprintln(w, string(j))
+		default:
+			log.Println(err)
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	j, jErr := json.Marshal(res)
+	if jErr != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	fmt.Fprintln(w, string(j))
+}

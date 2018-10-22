@@ -108,7 +108,7 @@ func GetThreadBySlug(s string) (models.Thread, error) {
 		SELECT thread_id, f.slug forum, t.slug, t.title, u.nickname author, created, message, votes FROM thread t
 		JOIN forum f ON t.forum = f.forum_id
 		JOIN forum_user u ON t.author = u.forum_user_id
-		WHERE lower(t.slug) = lower($1)
+		WHERE t.slug = $1
 	`, s)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -131,7 +131,7 @@ func GetAllThreadsInForum(s string, params *models.ThreadQueryParams) ([]models.
 		SELECT thread_id, f.slug forum, t.slug, t.title, u.nickname author, created, message, votes FROM thread t
 		JOIN forum f ON t.forum = f.forum_id
 		JOIN forum_user u ON t.author = u.forum_user_id
-		WHERE lower(f.slug) = lower($1) `
+		WHERE f.slug = $1 `
 	var nt time.Time
 	if params.Since != nt {
 		if params.Desc {

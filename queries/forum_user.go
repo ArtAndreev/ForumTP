@@ -2,6 +2,7 @@ package queries
 
 import (
 	"database/sql"
+	"fmt"
 
 	"github.com/jmoiron/sqlx"
 
@@ -52,7 +53,7 @@ func CreateUser(u *models.ForumUser) ([]models.ForumUser, error) {
 
 func GetUserByNickname(n string) (models.ForumUser, error) {
 	res := models.ForumUser{}
-	err := db.Get(&res, "SELECT * FROM forum_user WHERE lower(nickname) = lower($1)", n)
+	err := db.Get(&res, "SELECT * FROM forum_user WHERE nickname = $1", n)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return res, &RecordNotFoundError{"User", n}
@@ -64,7 +65,7 @@ func GetUserByNickname(n string) (models.ForumUser, error) {
 
 func txGetUserByNickname(n string, tx *sqlx.Tx) (models.ForumUser, error) {
 	res := models.ForumUser{}
-	err := tx.Get(&res, "SELECT * FROM forum_user WHERE lower(nickname) = lower($1)", n)
+	err := tx.Get(&res, "SELECT * FROM forum_user WHERE nickname = $1", n)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return res, &RecordNotFoundError{"User", n}
@@ -76,7 +77,7 @@ func txGetUserByNickname(n string, tx *sqlx.Tx) (models.ForumUser, error) {
 
 func GetUserByEmail(e string) (models.ForumUser, error) {
 	res := models.ForumUser{}
-	err := db.Get(&res, "SELECT * FROM forum_user WHERE lower(email) = lower($1)", e)
+	err := db.Get(&res, "SELECT * FROM forum_user WHERE email = $1", e)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return res, &RecordNotFoundError{"User", e}
@@ -88,7 +89,7 @@ func GetUserByEmail(e string) (models.ForumUser, error) {
 
 func txGetUserByEmail(e string, tx *sqlx.Tx) (models.ForumUser, error) {
 	res := models.ForumUser{}
-	err := tx.Get(&res, "SELECT * FROM forum_user WHERE lower(email) = lower($1)", e)
+	err := tx.Get(&res, "SELECT * FROM forum_user WHERE email = $1", e)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return res, &RecordNotFoundError{"User", e}
@@ -185,5 +186,60 @@ func UpdateUser(n string, u *models.ForumUser) (models.ForumUser, error) {
 		return res, err
 	}
 
+	return res, nil
+}
+
+func GetAllUsersInForum(s string, params *models.UserQueryParams) ([]models.ForumUser, error) {
+	res := []models.ForumUser{}
+	// check existence of forum
+	_, err := GetForumBySlug(s)
+	if err != nil {
+		return res, err
+	}
+
+	q := `
+		WITH forum_threads AS (
+			SELECT thread_id, author FROM thread t
+			JOIN forum f on t.forum = f.forum_id
+			WHERE f.slug = $1
+		)
+		SELECT DISTINCT nickname, fullname, email, about FROM forum_threads ft
+		JOIN post p ON p.thread = ft.thread_id
+		JOIN forum_user u ON u.forum_user_id = p.author
+	`
+	if params.Since != "" {
+		if params.Desc {
+			q += "WHERE nickname < $2\n"
+		} else {
+			q += "WHERE nickname > $2\n"
+		}
+	}
+	q += `
+		UNION
+		SELECT DISTINCT nickname, fullname, email, about FROM forum_threads ft
+		JOIN forum_user u ON u.forum_user_id = ft.author
+	`
+	if params.Since != "" {
+		if params.Desc {
+			q += "WHERE nickname < $2\n"
+		} else {
+			q += "WHERE nickname > $2\n"
+		}
+	}
+	q += "ORDER BY nickname "
+	if params.Desc {
+		q += "DESC"
+	}
+	if params.Limit != 0 {
+		q += fmt.Sprintf("\nLIMIT %v", params.Limit)
+	}
+	if params.Since == "" {
+		err = db.Select(&res, q, s)
+	} else {
+		err = db.Select(&res, q, s, params.Since)
+	}
+	if err != nil {
+		return res, err
+	}
 	return res, nil
 }

@@ -52,7 +52,7 @@ func GetForumBySlug(s string) (models.Forum, error) {
 	err := db.Get(&res, `
 		SELECT forum_id, title, slug, u.nickname forum_user, threads, posts FROM forum f 
 		JOIN forum_user u ON f.forum_user = u.forum_user_id 
-		WHERE lower(slug) = lower($1)`,
+		WHERE slug = $1`,
 		s)
 	if err != nil {
 		if err == sql.ErrNoRows {

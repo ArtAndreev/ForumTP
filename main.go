@@ -19,7 +19,7 @@ func main() {
 	api.HandleFunc("/forum/{slug}/create", handlers.CreateThread).Methods("POST")
 	api.HandleFunc("/forum/{slug}/details", handlers.GetForum).Methods("GET")
 	api.HandleFunc("/forum/{slug}/threads", handlers.GetThreads).Methods("GET")
-	// api.HandleFunc("/forum/{slug}/users", handlers.).Methods("GET")
+	api.HandleFunc("/forum/{slug}/users", handlers.GetForumUsers).Methods("GET")
 
 	// api.HandleFunc("/post/{id:[0-9]+}/details", handlers.).Methods("GET")
 	// api.HandleFunc("/post/{id:[0-9]+}/details", handlers.).Methods("POST")

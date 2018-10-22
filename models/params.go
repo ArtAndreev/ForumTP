@@ -9,3 +9,9 @@ type ThreadQueryParams struct {
 	Limit int
 	Since time.Time
 }
+
+type UserQueryParams struct {
+	Desc  bool
+	Limit int
+	Since string
+}
