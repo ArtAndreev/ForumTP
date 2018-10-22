@@ -24,5 +24,7 @@ func InitDB(address, database string) *sqlx.DB {
 
 	log.Printf("Successfully connected to %v, database %v\n", address, database)
 
+	makeMigrations(db)
+
 	return db
 }

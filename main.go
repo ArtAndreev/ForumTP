@@ -39,7 +39,6 @@ func main() {
 
 	db := queries.InitDB("docker:docker@localhost:5432", "docker")
 	defer db.Close()
-	queries.MakeMigrations(db)
 
 	log.Println("starting server at:", 5000)
 	http.ListenAndServe(":5000", r)

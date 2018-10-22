@@ -7,7 +7,7 @@ import (
 	"github.com/rubenv/sql-migrate" // applies migrations
 )
 
-func MakeMigrations(db *sqlx.DB) {
+func makeMigrations(db *sqlx.DB) {
 	migrations := &migrate.FileMigrationSource{
 		Dir: "migrations",
 	}
