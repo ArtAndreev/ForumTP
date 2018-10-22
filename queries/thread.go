@@ -50,11 +50,6 @@ func CreateThread(t *models.Thread) (models.Thread, error) {
 		return res, err
 	}
 
-	_, err = db.Exec(`
-		UPDATE forum SET threads = threads + 1
-		WHERE forum_id = $1
-		`, f.ForumID)
-
 	lastInsertedID, err := getLastInsertedID(qres)
 	if err != nil {
 		return res, err

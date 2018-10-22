@@ -49,6 +49,30 @@ CREATE TABLE IF NOT EXISTS vote (
 );
 
 -- +migrate StatementBegin
+CREATE OR REPLACE FUNCTION increment_post_counter() RETURNS TRIGGER AS $increment_post_counter$
+    BEGIN
+        UPDATE forum SET posts = posts + 1 WHERE forum_id = NEW.forum;
+        RETURN NEW;
+    END;
+$increment_post_counter$ LANGUAGE plpgsql;
+-- +migrate StatementEnd
+
+CREATE TRIGGER increment_post_counter AFTER INSERT ON post 
+FOR EACH ROW EXECUTE PROCEDURE increment_post_counter();
+
+-- +migrate StatementBegin
+CREATE OR REPLACE FUNCTION increment_thread_counter() RETURNS TRIGGER AS $increment_thread_counter$
+    BEGIN
+        UPDATE forum SET threads = threads + 1 WHERE forum_id = NEW.forum;
+        RETURN NEW;
+    END;
+$increment_thread_counter$ LANGUAGE plpgsql;
+-- +migrate StatementEnd
+
+CREATE TRIGGER increment_thread_counter AFTER INSERT ON thread 
+FOR EACH ROW EXECUTE PROCEDURE increment_thread_counter();
+
+-- +migrate StatementBegin
 CREATE OR REPLACE FUNCTION recount_vote_value() RETURNS TRIGGER AS $recount_vote_value$
     BEGIN
         IF (TG_OP = 'INSERT') THEN
@@ -72,6 +96,17 @@ FOR EACH ROW EXECUTE PROCEDURE recount_vote_value();
 ALTER DATABASE docker SET timezone TO 'UTC-3';
 
 -- +migrate Down
+ALTER DATABASE docker SET timezone TO 'UTC';
+
+DROP TRIGGER IF EXISTS recount_vote_value ON vote;
+DROP FUNCTION IF EXISTS recount_vote_value();
+
+DROP TRIGGER IF EXISTS increment_thread_counter ON thread;
+DROP FUNCTION IF EXISTS increment_thread_counter();
+
+DROP TRIGGER IF EXISTS increment_post_counter ON post;
+DROP FUNCTION IF EXISTS increment_post_counter();
+
 DROP TABLE IF EXISTS vote;
 DROP TABLE IF EXISTS post;
 DROP TABLE IF EXISTS thread;
@@ -79,9 +114,3 @@ DROP TABLE IF EXISTS forum;
 DROP TABLE IF EXISTS forum_user;
 
 DROP EXTENSION IF EXISTS citext;
-
-DROP TRIGGER IF EXISTS increment_vote_value ON vote;
-
-DROP FUNCTION IF EXISTS recount_vote_value();
-
-ALTER DATABASE docker SET timezone TO 'UTC';

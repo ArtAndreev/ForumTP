@@ -66,14 +66,6 @@ func CreatePosts(p *[]models.Post, path string) ([]models.Post, error) {
 			return res, err
 		}
 
-		_, err = tx.Exec(`
-			UPDATE forum SET posts = posts + 1
-			WHERE forum_id = $1
-			`, f.ForumID)
-		if err != nil {
-			return res, err
-		}
-
 		// get new res
 		last, err := txGetPostByID(lastInsertedID, tx)
 		if err != nil {
