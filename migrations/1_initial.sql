@@ -1,16 +1,18 @@
 -- +migrate Up
+CREATE EXTENSION IF NOT EXISTS citext;
+
 CREATE TABLE IF NOT EXISTS forum_user (
     forum_user_id serial PRIMARY KEY,
-    nickname varchar(64) UNIQUE,
+    nickname citext UNIQUE,
     fullname varchar(128) NOT NULL,
-    email varchar(64) UNIQUE NOT NULL,
+    email citext UNIQUE NOT NULL,
     about text
 );
 
 CREATE TABLE IF NOT EXISTS forum (
     forum_id serial PRIMARY KEY,
     title varchar(128) NOT NULL,
-    slug varchar(64) UNIQUE NOT NULL,
+    slug citext UNIQUE NOT NULL,
     forum_user integer REFERENCES forum_user NOT NULL,
     threads integer DEFAULT 0,
     posts integer DEFAULT 0
@@ -19,7 +21,7 @@ CREATE TABLE IF NOT EXISTS forum (
 CREATE TABLE IF NOT EXISTS thread (
     thread_id serial PRIMARY KEY,
     forum integer REFERENCES forum NOT NULL,
-    slug varchar(64) UNIQUE,
+    slug citext UNIQUE,
     title varchar(128) NOT NULL,
     author integer REFERENCES forum_user NOT NULL,
     created timestamp with time zone DEFAULT now(),
@@ -75,6 +77,8 @@ DROP TABLE IF EXISTS post;
 DROP TABLE IF EXISTS thread;
 DROP TABLE IF EXISTS forum;
 DROP TABLE IF EXISTS forum_user;
+
+DROP EXTENSION IF EXISTS citext;
 
 DROP TRIGGER IF EXISTS increment_vote_value ON vote;
 
