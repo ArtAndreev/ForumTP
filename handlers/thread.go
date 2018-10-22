@@ -110,3 +110,95 @@ func GetThreads(w http.ResponseWriter, r *http.Request) {
 	}
 	fmt.Fprintln(w, string(j))
 }
+
+func GetThread(w http.ResponseWriter, r *http.Request) {
+	path := mux.Vars(r)["slug_or_id"]
+
+	res, err := queries.GetThreadBySlugOrID(path)
+	if err != nil {
+		switch err.(type) {
+		case *queries.RecordNotFoundError:
+			j, jErr := json.Marshal(models.ErrorMessage{Message: err.Error()})
+			if jErr != nil {
+				log.Println(err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprintln(w, string(j))
+		default:
+			log.Println(err)
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	j, err := json.Marshal(res)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	fmt.Fprintln(w, string(j))
+}
+
+func UpdateThread(w http.ResponseWriter, r *http.Request) {
+	t := &models.Thread{}
+	err := cleanBody(r, t)
+	if err != nil {
+		if err == ErrWrongJSON {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	path := mux.Vars(r)["slug_or_id"]
+
+	res, err := queries.UpdateThread(t, path)
+	if err != nil {
+		switch err.(type) {
+		case *queries.NullFieldError:
+			j, jErr := json.Marshal(models.ErrorMessage{Message: err.Error()})
+			if jErr != nil {
+				log.Println(err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintln(w, string(j))
+		// case *queries.UniqueFieldValueAlreadyExistsError:
+		// 	j, err := json.Marshal(res)
+		// 	if err != nil {
+		// 		log.Println(err)
+		// 		w.WriteHeader(http.StatusInternalServerError)
+		// 		return
+		// 	}
+		// 	w.WriteHeader(http.StatusConflict)
+		// 	fmt.Fprintln(w, string(j))
+		case *queries.RecordNotFoundError:
+			j, jErr := json.Marshal(models.ErrorMessage{Message: err.Error()})
+			if jErr != nil {
+				log.Println(err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprintln(w, string(j))
+		default:
+			log.Println(err)
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	j, err := json.Marshal(res)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	fmt.Fprintln(w, string(j))
+}

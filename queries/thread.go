@@ -176,3 +176,30 @@ func GetThreadBySlugOrID(slugOrID string) (models.Thread, error) {
 	}
 	return res, nil
 }
+
+func UpdateThread(t *models.Thread, path string) (models.Thread, error) {
+	res := models.Thread{}
+	res, err := GetThreadBySlugOrID(path)
+	if err != nil {
+		return res, err
+	}
+	if t.Title != "" {
+		_, err := db.Exec(`
+			UPDATE thread SET title = $1 WHERE thread_id = $2
+		`, t.Title, res.ThreadID)
+		if err != nil {
+			return res, err
+		}
+		res.Title = t.Title
+	}
+	if t.Message != "" {
+		_, err := db.Exec(`
+			UPDATE thread SET message = $1 WHERE thread_id = $2
+		`, t.Message, res.ThreadID)
+		if err != nil {
+			return res, err
+		}
+		res.Message = t.Message
+	}
+	return res, nil
+}

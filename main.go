@@ -28,8 +28,8 @@ func main() {
 	api.HandleFunc("/service/status", handlers.GetDatabaseStatus).Methods("GET")
 
 	api.HandleFunc("/thread/{slug_or_id}/create", handlers.CreatePosts).Methods("POST")
-	// api.HandleFunc("/thread/{slug_or_id}/details", handlers.).Methods("GET")
-	// api.HandleFunc("/thread/{slug_or_id}/details", handlers.).Methods("POST")
+	api.HandleFunc("/thread/{slug_or_id}/details", handlers.GetThread).Methods("GET")
+	api.HandleFunc("/thread/{slug_or_id}/details", handlers.UpdateThread).Methods("POST")
 	// api.HandleFunc("/thread/{slug_or_id}/posts", handlers.).Methods("GET")
 	api.HandleFunc("/thread/{slug_or_id}/vote", handlers.VoteForPost).Methods("POST")
 
