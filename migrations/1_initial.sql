@@ -46,13 +46,38 @@ CREATE TABLE IF NOT EXISTS vote (
     CONSTRAINT vote_unique_all UNIQUE (nickname, thread)
 );
 
+-- +migrate StatementBegin
+CREATE OR REPLACE FUNCTION recount_vote_value() RETURNS TRIGGER AS $recount_vote_value$
+    BEGIN
+        IF (TG_OP = 'INSERT') THEN
+            UPDATE thread SET votes = votes + NEW.voice WHERE thread_id = NEW.thread;
+            RETURN NEW;
+        ELSIF (TG_OP = 'UPDATE') THEN
+            IF OLD.voice <> NEW.voice THEN 
+                UPDATE thread SET votes = votes + NEW.voice * 2 WHERE thread_id = NEW.thread;
+            END IF;
+            RETURN NEW;
+        END IF;
+        RETURN NULL;
+        UPDATE thread SET votes = votes + 1 WHERE thread_id = NEW.thread;
+    END;
+$recount_vote_value$ LANGUAGE plpgsql;
+-- +migrate StatementEnd
+
+CREATE TRIGGER recount_vote_value AFTER INSERT OR UPDATE ON vote 
+FOR EACH ROW EXECUTE PROCEDURE recount_vote_value();
+
 ALTER DATABASE docker SET timezone TO 'UTC-3';
 
 -- +migrate Down
-DROP TABLE vote;
-DROP TABLE post;
-DROP TABLE thread;
-DROP TABLE forum;
-DROP TABLE forum_user;
+DROP TABLE IF EXISTS vote;
+DROP TABLE IF EXISTS post;
+DROP TABLE IF EXISTS thread;
+DROP TABLE IF EXISTS forum;
+DROP TABLE IF EXISTS forum_user;
+
+DROP TRIGGER IF EXISTS increment_vote_value ON vote;
+
+DROP FUNCTION IF EXISTS recount_vote_value();
 
 ALTER DATABASE docker SET timezone TO 'UTC';
