@@ -9,12 +9,12 @@ import (
 func CreateForum(f *models.Forum) (models.Forum, error) {
 	var res models.Forum
 	// check not null constraint
-	if f.Title == "" || f.Slug == "" || f.ForumUser == "" {
+	if f.ForumTitle == "" || f.ForumSlug == "" || f.ForumUser == "" {
 		return res, &NullFieldError{"Forum", "title and/or slug and/or user"}
 	}
 
 	// check existence of forum
-	res, err := GetForumBySlug(f.Slug)
+	res, err := GetForumBySlug(f.ForumSlug)
 	if err != nil {
 		if _, ok := err.(*RecordNotFoundError); !ok {
 			return res, err // db error
@@ -32,16 +32,16 @@ func CreateForum(f *models.Forum) (models.Forum, error) {
 	// insert
 	_, err = db.Exec(
 		"INSERT INTO forum (forum_title, forum_slug, forum_user) VALUES ($1, $2, $3)",
-		f.Title, f.Slug, u.ForumUserID)
+		f.ForumTitle, f.ForumSlug, u.ForumUserID)
 	if err != nil {
 		return res, err
 	}
 
 	// return res
 	res = models.Forum{
-		Title:     f.Title,
-		Slug:      f.Slug,
-		ForumUser: u.Nickname,
+		ForumTitle: f.ForumTitle,
+		ForumSlug:  f.ForumSlug,
+		ForumUser:  u.Nickname,
 	}
 
 	return res, nil

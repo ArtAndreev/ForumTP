@@ -5,14 +5,21 @@ import (
 )
 
 type Post struct {
-	PostID   int       `json:"id" db:"post_id"`
-	Forum    string    `json:"forum"`
-	Thread   int       `json:"thread"`
-	Parent   int       `json:"parent"`
-	Author   string    `json:"author" db:"post_author"`
-	Created  time.Time `json:"created" db:"post_created"`
-	IsEdited bool      `json:"isEdited" db:"is_edited"`
-	Message  string    `json:"message" db:"post_message"`
+	PostID      int       `json:"id" db:"post_id"`
+	Forum       string    `json:"forum"`
+	Thread      int       `json:"thread"`
+	Parent      int       `json:"parent"`
+	PostAuthor  string    `json:"author" db:"post_author"`
+	PostCreated time.Time `json:"created" db:"post_created"`
+	IsEdited    bool      `json:"isEdited" db:"is_edited"`
+	PostMessage string    `json:"message" db:"post_message"`
+}
+
+type PostInfoAllFields struct {
+	Post
+	Forum
+	Thread
+	ForumUser
 }
 
 type PostInfo struct {

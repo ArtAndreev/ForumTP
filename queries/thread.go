@@ -13,7 +13,7 @@ import (
 
 func CreateThread(t *models.Thread) (models.Thread, error) {
 	res := models.Thread{}
-	if t.Forum == "" || t.Title == "" || t.Author == "" {
+	if t.Forum == "" || t.ThreadTitle == "" || t.ThreadAuthor == "" {
 		return res, &NullFieldError{"Thread", "some value(-s) is/are null"}
 	}
 
@@ -24,14 +24,14 @@ func CreateThread(t *models.Thread) (models.Thread, error) {
 	}
 
 	// check existence of user
-	u, err := GetUserByNickname(t.Author)
+	u, err := GetUserByNickname(t.ThreadAuthor)
 	if err != nil {
 		return res, err
 	}
 
 	// check existence of thread
-	if t.Slug != nil {
-		res, err = GetThreadBySlug(*t.Slug)
+	if t.ThreadSlug != nil {
+		res, err = GetThreadBySlug(*t.ThreadSlug)
 		if err != nil {
 			if _, ok := err.(*RecordNotFoundError); !ok {
 				return res, err // db error
@@ -45,7 +45,7 @@ func CreateThread(t *models.Thread) (models.Thread, error) {
 	qres, err := db.Query(`
 		INSERT INTO thread (forum, thread_slug, thread_title, thread_author, thread_created, thread_message)
 		VALUES ($1, $2, $3, $4, $5, $6) RETURNING thread_id`,
-		f.ForumID, t.Slug, t.Title, u.ForumUserID, t.Created, t.Message)
+		f.ForumID, t.ThreadSlug, t.ThreadTitle, u.ForumUserID, t.ThreadCreated, t.ThreadMessage)
 	if err != nil {
 		return res, err
 	}
@@ -178,23 +178,23 @@ func UpdateThread(t *models.Thread, path string) (models.Thread, error) {
 	if err != nil {
 		return res, err
 	}
-	if t.Title != "" {
+	if t.ThreadTitle != "" {
 		_, err := db.Exec(`
 			UPDATE thread SET thread_title = $1 WHERE thread_id = $2
-		`, t.Title, res.ThreadID)
+		`, t.ThreadTitle, res.ThreadID)
 		if err != nil {
 			return res, err
 		}
-		res.Title = t.Title
+		res.ThreadTitle = t.ThreadTitle
 	}
-	if t.Message != "" {
+	if t.ThreadMessage != "" {
 		_, err := db.Exec(`
 			UPDATE thread SET thread_message = $1 WHERE thread_id = $2
-		`, t.Message, res.ThreadID)
+		`, t.ThreadMessage, res.ThreadID)
 		if err != nil {
 			return res, err
 		}
-		res.Message = t.Message
+		res.ThreadMessage = t.ThreadMessage
 	}
 	return res, nil
 }

@@ -39,7 +39,7 @@ func CreatePosts(p *[]models.Post, path string) ([]models.Post, error) {
 
 	for _, v := range *p {
 		// get user
-		u, err := txGetUserByNickname(v.Author, tx)
+		u, err := txGetUserByNickname(v.PostAuthor, tx)
 		if err != nil {
 			return res, err
 		}
@@ -58,7 +58,7 @@ func CreatePosts(p *[]models.Post, path string) ([]models.Post, error) {
 		qres := tx.QueryRow(`
 			INSERT INTO post (forum, thread, parent, post_author, post_created, post_message)
 			VALUES ($1, $2, $3, $4, $5, $6) RETURNING post_id`,
-			f.ForumID, t.ThreadID, v.Parent, u.ForumUserID, now, v.Message)
+			f.ForumID, t.ThreadID, v.Parent, u.ForumUserID, now, v.PostMessage)
 
 		lastInsertedID := 0
 		err = qres.Scan(&lastInsertedID)
@@ -114,39 +114,66 @@ func txGetPostByID(id int, tx *sqlx.Tx) (models.Post, error) {
 }
 
 func GetPostInfoByID(id int, params *models.PostQueryArgs) (models.PostInfo, error) {
-	res := models.PostInfo{Post: &models.Post{}}
+	res := models.PostInfo{}
 	q := `
-		SELECT post_id, forum_slug forum, thread, parent, u.nickname post_author, post_created, is_edited, post_message `
-	// var queryArgs map[string]bool
-	// for _, v := range params.Related {
-	// 	queryArgs[v] = true
-	// }
-	// if _, ok := queryArgs["author"]; ok {
-	// 	q += ", u.about, u.email, u.fullname"
-	// }
-	// if _, ok := queryArgs["thread"]; ok {
-	// 	q += ", t.thread_slug, t.thread_title, t.thread_author, t.thread_created, t.thread_message, votes "
-	// }
-	// if _, ok := queryArgs["forum"]; ok {
-	// 	q += ", f.forum_title, f.forum_slug, f.forum_user "
-	// }
+		SELECT post_id, forum_slug, thread, parent, u.nickname post_author, post_created, is_edited, post_message `
+	queryArgs := make(map[string]bool, 3)
+	for _, v := range params.Related {
+		queryArgs[v] = true
+	}
+	if _, ok := queryArgs["user"]; ok {
+		q += ", u.about, u.email, u.fullname "
+	}
+	if _, ok := queryArgs["thread"]; ok {
+		q += ", thread_slug, thread_title, thread_author, thread_created, t.thread_message, votes "
+	}
+	if _, ok := queryArgs["forum"]; ok {
+		q += ", forum_title "
+	}
 	q += "FROM post p"
-	// if _, ok := queryArgs["thread"]; ok {
-	// 	q += `
-	// 	JOIN thread t ON p.thread = t.thread_id`
-	// }
+	if _, ok := queryArgs["thread"]; ok {
+
+		q += `
+		JOIN thread t ON p.thread = t.thread_id`
+	}
 	q += `
 		JOIN forum f ON p.forum = f.forum_id
-		JOIN forum_user u ON post_author = u.forum_user_id
+		JOIN forum_user u ON post_author = u.forum_user_id`
+	q += `
 		WHERE post_id = $1`
-	row := db.QueryRow(q, id)
-	err := row.Scan(&res.Post.PostID, &res.Post.Forum, &res.Post.Thread, &res.Post.Parent,
-		&res.Post.Author, &res.Post.Created, &res.Post.IsEdited, &res.Post.Message)
+	row := db.QueryRowx(q, id)
+
+	all := &models.PostInfoAllFields{}
+	err := row.StructScan(all)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return res, &RecordNotFoundError{"Post", fmt.Sprintf("%v", id)}
 		}
 		return res, err
+	}
+	res.Post = &models.Post{
+		PostID:      all.PostID,
+		Forum:       all.ForumSlug,
+		Thread:      all.Post.Thread,
+		Parent:      all.Parent,
+		PostAuthor:  all.PostAuthor,
+		PostCreated: all.PostCreated,
+		IsEdited:    all.IsEdited,
+		PostMessage: all.PostMessage,
+	}
+	if _, ok := queryArgs["user"]; ok {
+		res.Author = &models.ForumUser{
+			Nickname: all.PostAuthor,
+			Fullname: all.Fullname,
+			Email:    all.Email,
+			About:    all.About,
+		}
+	}
+	if _, ok := queryArgs["thread"]; ok {
+		res.Thread = &models.Thread{}
+	}
+	if _, ok := queryArgs["forum"]; ok {
+
 	}
 
 	return res, nil
