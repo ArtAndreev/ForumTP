@@ -31,7 +31,7 @@ func CreateForum(f *models.Forum) (models.Forum, error) {
 
 	// insert
 	_, err = db.Exec(
-		"INSERT INTO forum (title, slug, forum_user) VALUES ($1, $2, $3)",
+		"INSERT INTO forum (forum_title, forum_slug, forum_user) VALUES ($1, $2, $3)",
 		f.Title, f.Slug, u.ForumUserID)
 	if err != nil {
 		return res, err
@@ -50,9 +50,9 @@ func CreateForum(f *models.Forum) (models.Forum, error) {
 func GetForumBySlug(s string) (models.Forum, error) {
 	res := models.Forum{}
 	err := db.Get(&res, `
-		SELECT forum_id, title, slug, u.nickname forum_user, threads, posts FROM forum f 
+		SELECT forum_id, forum_title, forum_slug, u.nickname forum_user, threads, posts FROM forum f 
 		JOIN forum_user u ON f.forum_user = u.forum_user_id 
-		WHERE slug = $1`,
+		WHERE forum_slug = $1`,
 		s)
 	if err != nil {
 		if err == sql.ErrNoRows {

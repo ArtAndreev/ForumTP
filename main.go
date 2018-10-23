@@ -21,7 +21,7 @@ func main() {
 	api.HandleFunc("/forum/{slug}/threads", handlers.GetThreads).Methods("GET")
 	api.HandleFunc("/forum/{slug}/users", handlers.GetForumUsers).Methods("GET")
 
-	// api.HandleFunc("/post/{id:[0-9]+}/details", handlers.).Methods("GET")
+	api.HandleFunc("/post/{id:[0-9]+}/details", handlers.GetPost).Methods("GET")
 	// api.HandleFunc("/post/{id:[0-9]+}/details", handlers.).Methods("POST")
 
 	api.HandleFunc("/service/clear", handlers.ClearDatabase).Methods("POST")

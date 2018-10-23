@@ -43,7 +43,7 @@ func CreateThread(t *models.Thread) (models.Thread, error) {
 
 	// insert
 	qres, err := db.Query(`
-		INSERT INTO thread (forum, slug, title, author, created, message)
+		INSERT INTO thread (forum, thread_slug, thread_title, thread_author, thread_created, thread_message)
 		VALUES ($1, $2, $3, $4, $5, $6) RETURNING thread_id`,
 		f.ForumID, t.Slug, t.Title, u.ForumUserID, t.Created, t.Message)
 	if err != nil {
@@ -66,9 +66,9 @@ func CreateThread(t *models.Thread) (models.Thread, error) {
 func GetThreadByID(id int) (models.Thread, error) {
 	res := models.Thread{}
 	err := db.Get(&res, `
-		SELECT thread_id, f.slug forum, t.slug, t.title, u.nickname author, created, message, votes FROM thread t
+		SELECT thread_id, forum_slug forum, thread_slug, thread_title, u.nickname thread_author, thread_created, thread_message, votes FROM thread t
 		JOIN forum f ON t.forum = f.forum_id
-		JOIN forum_user u ON t.author = u.forum_user_id
+		JOIN forum_user u ON t.thread_author = u.forum_user_id
 		WHERE t.thread_id = $1
 		`, id)
 	if err != nil {
@@ -83,9 +83,9 @@ func GetThreadByID(id int) (models.Thread, error) {
 func txGetThreadByID(id int, tx *sqlx.Tx) (models.Thread, error) {
 	res := models.Thread{}
 	err := tx.Get(&res, `
-		SELECT thread_id, f.slug forum, t.slug, t.title, u.nickname author, created, message, votes FROM thread t
+		SELECT thread_id, forum_slug forum, thread_slug, thread_title, u.nickname thread_author, thread_created, thread_message, votes FROM thread t
 		JOIN forum f ON t.forum = f.forum_id
-		JOIN forum_user u ON t.author = u.forum_user_id
+		JOIN forum_user u ON t.thread_author = u.forum_user_id
 		WHERE t.thread_id = $1
 		`, id)
 	if err != nil {
@@ -100,10 +100,10 @@ func txGetThreadByID(id int, tx *sqlx.Tx) (models.Thread, error) {
 func GetThreadBySlug(s string) (models.Thread, error) {
 	res := models.Thread{}
 	err := db.Get(&res, `
-		SELECT thread_id, f.slug forum, t.slug, t.title, u.nickname author, created, message, votes FROM thread t
+		SELECT thread_id, forum_slug forum, thread_slug, thread_title, u.nickname thread_author, thread_created, thread_message, votes FROM thread t
 		JOIN forum f ON t.forum = f.forum_id
-		JOIN forum_user u ON t.author = u.forum_user_id
-		WHERE t.slug = $1
+		JOIN forum_user u ON t.thread_author = u.forum_user_id
+		WHERE t.thread_slug = $1
 	`, s)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -123,19 +123,19 @@ func GetAllThreadsInForum(s string, params *models.ThreadQueryParams) ([]models.
 	}
 
 	q := `
-		SELECT thread_id, f.slug forum, t.slug, t.title, u.nickname author, created, message, votes FROM thread t
+		SELECT thread_id, forum_slug forum, thread_slug, thread_title, u.nickname thread_author, thread_created, thread_message, votes FROM thread t
 		JOIN forum f ON t.forum = f.forum_id
-		JOIN forum_user u ON t.author = u.forum_user_id
-		WHERE f.slug = $1 `
+		JOIN forum_user u ON t.thread_author = u.forum_user_id
+		WHERE forum_slug = $1 `
 	var nt time.Time
 	if params.Since != nt {
 		if params.Desc {
-			q += "AND created <= $2\n"
+			q += "AND thread_created <= $2\n"
 		} else {
-			q += "AND created >= $2\n"
+			q += "AND thread_created >= $2\n"
 		}
 	}
-	q += "ORDER BY created "
+	q += "ORDER BY thread_created "
 	if params.Desc {
 		q += "DESC"
 	}
@@ -180,7 +180,7 @@ func UpdateThread(t *models.Thread, path string) (models.Thread, error) {
 	}
 	if t.Title != "" {
 		_, err := db.Exec(`
-			UPDATE thread SET title = $1 WHERE thread_id = $2
+			UPDATE thread SET thread_title = $1 WHERE thread_id = $2
 		`, t.Title, res.ThreadID)
 		if err != nil {
 			return res, err
@@ -189,7 +189,7 @@ func UpdateThread(t *models.Thread, path string) (models.Thread, error) {
 	}
 	if t.Message != "" {
 		_, err := db.Exec(`
-			UPDATE thread SET message = $1 WHERE thread_id = $2
+			UPDATE thread SET thread_message = $1 WHERE thread_id = $2
 		`, t.Message, res.ThreadID)
 		if err != nil {
 			return res, err

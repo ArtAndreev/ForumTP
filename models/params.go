@@ -15,3 +15,7 @@ type UserQueryParams struct {
 	Limit int
 	Since string
 }
+
+type PostQueryArgs struct {
+	Related []string
+}

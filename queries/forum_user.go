@@ -199,13 +199,13 @@ func GetAllUsersInForum(s string, params *models.UserQueryParams) ([]models.Foru
 
 	q := `
 		WITH forum_threads AS (
-			SELECT thread_id, author FROM thread t
+			SELECT thread_id, thread_author FROM thread t
 			JOIN forum f on t.forum = f.forum_id
-			WHERE f.slug = $1
+			WHERE forum_slug = $1
 		)
 		SELECT DISTINCT nickname, fullname, email, about FROM forum_threads ft
 		JOIN post p ON p.thread = ft.thread_id
-		JOIN forum_user u ON u.forum_user_id = p.author
+		JOIN forum_user u ON u.forum_user_id = post_author
 	`
 	if params.Since != "" {
 		if params.Desc {
@@ -217,7 +217,7 @@ func GetAllUsersInForum(s string, params *models.UserQueryParams) ([]models.Foru
 	q += `
 		UNION
 		SELECT DISTINCT nickname, fullname, email, about FROM forum_threads ft
-		JOIN forum_user u ON u.forum_user_id = ft.author
+		JOIN forum_user u ON u.forum_user_id = ft.thread_author
 	`
 	if params.Since != "" {
 		if params.Desc {
