@@ -11,8 +11,8 @@ CREATE TABLE IF NOT EXISTS forum_user (
 
 CREATE TABLE IF NOT EXISTS forum (
     forum_id serial PRIMARY KEY,
-    title varchar(128) NOT NULL,
-    slug citext UNIQUE NOT NULL,
+    forum_title varchar(128) NOT NULL,
+    forum_slug citext UNIQUE NOT NULL,
     forum_user integer REFERENCES forum_user NOT NULL,
     threads integer DEFAULT 0,
     posts integer DEFAULT 0
@@ -21,11 +21,11 @@ CREATE TABLE IF NOT EXISTS forum (
 CREATE TABLE IF NOT EXISTS thread (
     thread_id serial PRIMARY KEY,
     forum integer REFERENCES forum NOT NULL,
-    slug citext UNIQUE,
-    title varchar(128) NOT NULL,
-    author integer REFERENCES forum_user NOT NULL,
-    created timestamp with time zone DEFAULT now(),
-    message text NOT NULL,
+    thread_slug citext UNIQUE,
+    thread_title varchar(128) NOT NULL,
+    thread_author integer REFERENCES forum_user NOT NULL,
+    thread_created timestamp with time zone DEFAULT now(),
+    thread_message text NOT NULL,
     votes integer DEFAULT 0
 );
 
@@ -34,10 +34,10 @@ CREATE TABLE IF NOT EXISTS post (
     forum integer REFERENCES forum NOT NULL,
     thread integer REFERENCES thread NOT NULL,
     parent integer DEFAULT 0,
-    author integer REFERENCES forum_user NOT NULL,
-    created timestamp with time zone DEFAULT now(),
+    post_author integer REFERENCES forum_user NOT NULL,
+    post_created timestamp with time zone DEFAULT now(),
     is_edited boolean DEFAULT FALSE NOT NULL,
-    message text NOT NULL
+    post_message text NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS vote (
