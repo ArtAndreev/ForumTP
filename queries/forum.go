@@ -2,6 +2,7 @@ package queries
 
 import (
 	"database/sql"
+	"fmt"
 
 	"github.com/ArtAndreev/ForumTP/models"
 )
@@ -57,6 +58,20 @@ func GetForumBySlug(s string) (models.Forum, error) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return res, &RecordNotFoundError{"Forum", s}
+		}
+		return res, err
+	}
+	return res, nil
+}
+
+func GetForumSlugByID(id int) (string, error) {
+	res := ""
+	err := db.Get(&res, `
+		SELECT forum_slug FROM forum WHERE forum_id = $1`,
+		id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return res, &RecordNotFoundError{"Forum", fmt.Sprintf("%v", id)}
 		}
 		return res, err
 	}

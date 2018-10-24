@@ -200,3 +200,45 @@ func GetPostInfoByID(id int, params *[]string) (models.PostInfo, error) {
 
 	return res, nil
 }
+
+func UpdatePostByID(id int, p *models.Post) (models.Post, error) {
+	res := models.Post{}
+	res, err := GetPostByID(id)
+	if err != nil {
+		return res, err
+	}
+	if res.PostMessage == p.PostMessage || p.PostMessage == "" {
+		return res, nil
+	}
+	_, err = db.Exec(`
+		UPDATE post SET post_message = $1, is_edited = TRUE WHERE post_id = $2;`,
+		p.PostMessage, id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return res, &RecordNotFoundError{"Post", fmt.Sprintf("%v", id)}
+		}
+		return res, err
+	}
+	res.IsEdited = true
+	res.PostMessage = p.PostMessage
+
+	// fid, err := strconv.Atoi(res.Forum)
+	// if err != nil {
+	// 	return res, err
+	// }
+	// res.Forum, err = GetForumSlugByID(fid)
+	// if err != nil {
+	// 	return res, err
+	// }
+
+	// uid, err := strconv.Atoi(res.PostAuthor)
+	// if err != nil {
+	// 	return res, err
+	// }
+	// res.PostAuthor, err = GetUserNicknameByID(uid)
+	// if err != nil {
+	// 	return res, err
+	// }
+
+	return res, nil
+}

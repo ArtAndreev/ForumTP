@@ -243,3 +243,15 @@ func GetAllUsersInForum(s string, params *models.UserQueryParams) ([]models.Foru
 	}
 	return res, nil
 }
+
+func GetUserNicknameByID(id int) (string, error) {
+	res := ""
+	err := db.Get(&res, "SELECT nickname FROM forum_user WHERE forum_user_id = $1", id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return res, &RecordNotFoundError{"User", fmt.Sprintf("%v", id)}
+		}
+		return res, err
+	}
+	return res, nil
+}
