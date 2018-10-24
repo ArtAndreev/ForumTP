@@ -17,5 +17,5 @@ type UserQueryParams struct {
 }
 
 type PostQueryArgs struct {
-	Related []string
+	Related string
 }

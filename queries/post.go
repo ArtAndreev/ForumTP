@@ -113,32 +113,39 @@ func txGetPostByID(id int, tx *sqlx.Tx) (models.Post, error) {
 	return res, nil
 }
 
-func GetPostInfoByID(id int, params *models.PostQueryArgs) (models.PostInfo, error) {
+func GetPostInfoByID(id int, params *[]string) (models.PostInfo, error) {
 	res := models.PostInfo{}
 	q := `
 		SELECT post_id, forum_slug, thread, parent, u.nickname post_author, post_created, is_edited, post_message `
 	queryArgs := make(map[string]bool, 3)
-	for _, v := range params.Related {
+	for _, v := range *params {
 		queryArgs[v] = true
 	}
 	if _, ok := queryArgs["user"]; ok {
 		q += ", u.about, u.email, u.fullname "
 	}
 	if _, ok := queryArgs["thread"]; ok {
-		q += ", thread_slug, thread_title, thread_author, thread_created, t.thread_message, votes "
+		q += ", thread_id, thread_slug, thread_title, tu.nickname thread_author, thread_created, thread_message, votes "
 	}
 	if _, ok := queryArgs["forum"]; ok {
-		q += ", forum_title "
-	}
-	q += "FROM post p"
-	if _, ok := queryArgs["thread"]; ok {
-
-		q += `
-		JOIN thread t ON p.thread = t.thread_id`
+		q += ", forum_title, fu.nickname forum_user, threads, posts "
 	}
 	q += `
+		FROM post p
 		JOIN forum f ON p.forum = f.forum_id
 		JOIN forum_user u ON post_author = u.forum_user_id`
+	if _, ok := queryArgs["thread"]; ok {
+		// join for getting thread and thread_author (related with forum_user)
+		q += `
+		JOIN thread t ON p.thread = t.thread_id
+		JOIN forum_user tu ON t.thread_author = tu.forum_user_id`
+	}
+	if _, ok := queryArgs["forum"]; ok {
+		// join for getting thread and thread_author (related with forum_user)
+		q += `
+		JOIN forum_user fu ON f.forum_user = fu.forum_user_id`
+	}
+
 	q += `
 		WHERE post_id = $1`
 	row := db.QueryRowx(q, id)
@@ -151,6 +158,7 @@ func GetPostInfoByID(id int, params *models.PostQueryArgs) (models.PostInfo, err
 		}
 		return res, err
 	}
+
 	res.Post = &models.Post{
 		PostID:      all.PostID,
 		Forum:       all.ForumSlug,
@@ -170,10 +178,24 @@ func GetPostInfoByID(id int, params *models.PostQueryArgs) (models.PostInfo, err
 		}
 	}
 	if _, ok := queryArgs["thread"]; ok {
-		res.Thread = &models.Thread{}
+		res.Thread = &models.Thread{
+			ThreadID:      all.ThreadID,
+			Forum:         all.ForumSlug,
+			ThreadSlug:    all.ThreadSlug,
+			ThreadTitle:   all.ThreadTitle,
+			ThreadAuthor:  all.ThreadAuthor,
+			ThreadCreated: all.ThreadCreated,
+			ThreadMessage: all.ThreadMessage,
+		}
 	}
 	if _, ok := queryArgs["forum"]; ok {
-
+		res.Forum = &models.Forum{
+			ForumTitle: all.ForumTitle,
+			ForumSlug:  all.ForumSlug,
+			ForumUser:  all.Forum.ForumUser,
+			Threads:    all.Threads,
+			Posts:      all.Posts,
+		}
 	}
 
 	return res, nil

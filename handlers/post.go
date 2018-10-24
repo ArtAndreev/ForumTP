@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gorilla/mux"
 
@@ -79,21 +80,18 @@ func CreatePosts(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetPost(w http.ResponseWriter, r *http.Request) {
-	params := &models.PostQueryArgs{}
-	decoder.IgnoreUnknownKeys(true)
-	err := decoder.Decode(params, r.URL.Query())
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
 	ids := mux.Vars(r)["id"]
 	id, err := strconv.Atoi(ids)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	var params []string
+	if qs, ok := r.URL.Query()["related"]; ok {
+		params = strings.Split(qs[0], ",")
+	}
 
-	res, err := queries.GetPostInfoByID(id, params)
+	res, err := queries.GetPostInfoByID(id, &params)
 	if err != nil {
 		switch err.(type) {
 		case *queries.RecordNotFoundError:
