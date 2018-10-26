@@ -19,3 +19,10 @@ type UserQueryParams struct {
 type PostQueryArgs struct {
 	Related string
 }
+
+type ThreadPostsQueryArgs struct {
+	Limit int
+	Since int
+	Sort  string
+	Desc  bool
+}

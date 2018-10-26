@@ -30,7 +30,7 @@ func main() {
 	api.HandleFunc("/thread/{slug_or_id}/create", handlers.CreatePosts).Methods("POST")
 	api.HandleFunc("/thread/{slug_or_id}/details", handlers.GetThread).Methods("GET")
 	api.HandleFunc("/thread/{slug_or_id}/details", handlers.UpdateThread).Methods("POST")
-	// api.HandleFunc("/thread/{slug_or_id}/posts", handlers.).Methods("GET")
+	api.HandleFunc("/thread/{slug_or_id}/posts", handlers.GetThreadPosts).Methods("GET")
 	api.HandleFunc("/thread/{slug_or_id}/vote", handlers.VoteForPost).Methods("POST")
 
 	api.HandleFunc("/user/{nickname}/create", handlers.CreateUser).Methods("POST")

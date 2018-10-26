@@ -222,23 +222,38 @@ func UpdatePostByID(id int, p *models.Post) (models.Post, error) {
 	res.IsEdited = true
 	res.PostMessage = p.PostMessage
 
-	// fid, err := strconv.Atoi(res.Forum)
-	// if err != nil {
-	// 	return res, err
-	// }
-	// res.Forum, err = GetForumSlugByID(fid)
-	// if err != nil {
-	// 	return res, err
-	// }
+	return res, nil
+}
 
-	// uid, err := strconv.Atoi(res.PostAuthor)
-	// if err != nil {
-	// 	return res, err
-	// }
-	// res.PostAuthor, err = GetUserNicknameByID(uid)
-	// if err != nil {
-	// 	return res, err
-	// }
+func GetThreadPosts(slug_or_id string, args *models.ThreadPostsQueryArgs) ([]models.Post, error) {
+	res := []models.Post{}
+	t, err := GetThreadBySlugOrID(slug_or_id)
+	if err != nil {
+		return res, err
+	}
+	q := `
+		SELECT post_id, forum_slug forum, thread, parent, u.nickname post_author, post_created, is_edited, post_message FROM post p
+		JOIN forum f ON p.forum = f.forum_id
+		JOIN forum_user u ON post_author = u.forum_user_id
+		WHERE thread = $1 `
+	if args.Since > 0 {
+		q += fmt.Sprintf("AND post_id > %v", args.Since)
+	}
+	switch args.Sort {
+	case "flat":
+		q += `
+		ORDER BY post_created, post_id`
+	}
+	if args.Limit > 0 {
+		q += fmt.Sprintf("\nLIMIT %v", args.Limit)
+	}
+	err = db.Select(&res, q, t.ThreadID)
+	if err != nil {
+		// if err == sql.ErrNoRows {
+		// 	return res, &RecordNotFoundError{"Post from thread", fmt.Sprintf("%v", t.ThreadID)}
+		// }
+		return res, err
+	}
 
 	return res, nil
 }
