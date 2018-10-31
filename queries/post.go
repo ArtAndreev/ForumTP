@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 
 	"github.com/ArtAndreev/ForumTP/models"
 )
@@ -44,8 +45,9 @@ func CreatePosts(p *[]models.Post, path string) ([]models.Post, error) {
 			return res, err
 		}
 		// check parent message belongs to the same thread
+		parent := models.Post{}
 		if v.Parent != 0 {
-			parent, err := txGetPostByID(v.Parent, tx)
+			parent, err = txGetPostByID(v.Parent, tx)
 			switch err.(type) {
 			case *RecordNotFoundError:
 				return res, ErrParentPostIsNotInThisThread
@@ -55,10 +57,17 @@ func CreatePosts(p *[]models.Post, path string) ([]models.Post, error) {
 			}
 		}
 		// insert
-		qres := tx.QueryRow(`
-			INSERT INTO post (forum, thread, parent, post_author, post_created, post_message)
-			VALUES ($1, $2, $3, $4, $5, $6) RETURNING post_id`,
-			f.ForumID, t.ThreadID, v.Parent, u.ForumUserID, now, v.PostMessage)
+		q := `
+			INSERT INTO post (forum, thread, parent, path, post_author, post_created, post_message)
+			VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING post_id`
+		var qres *sql.Row
+		if v.Parent != 0 {
+			path := parent.Path
+			path = append(path, int64(v.Parent))
+			qres = tx.QueryRow(q, f.ForumID, t.ThreadID, v.Parent, pq.Array(path), u.ForumUserID, now, v.PostMessage)
+		} else {
+			qres = tx.QueryRow(q, f.ForumID, t.ThreadID, v.Parent, pq.Array([]int{}), u.ForumUserID, now, v.PostMessage)
+		}
 
 		lastInsertedID := 0
 		err = qres.Scan(&lastInsertedID)
@@ -79,12 +88,14 @@ func CreatePosts(p *[]models.Post, path string) ([]models.Post, error) {
 
 func GetPostByID(id int) (models.Post, error) {
 	res := models.Post{}
-	err := db.Get(&res, `
-		SELECT post_id, forum_slug forum, thread, parent, u.nickname post_author, post_created, is_edited, post_message FROM post p
+	qres := db.QueryRow(`
+		SELECT post_id, forum_slug forum, thread, parent, path, u.nickname post_author, post_created, is_edited, post_message FROM post p
 		JOIN forum f ON p.forum = f.forum_id
 		JOIN forum_user u ON post_author = u.forum_user_id
 		WHERE post_id = $1
 		`, id)
+	err := qres.Scan(&res.PostID, &res.Forum, &res.Thread, &res.Parent, pq.Array(&res.Path), &res.PostAuthor,
+		&res.PostCreated, &res.IsEdited, &res.PostMessage)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return res, &RecordNotFoundError{"Post", fmt.Sprintf("%v", id)}
@@ -97,12 +108,14 @@ func GetPostByID(id int) (models.Post, error) {
 
 func txGetPostByID(id int, tx *sqlx.Tx) (models.Post, error) {
 	res := models.Post{}
-	err := tx.Get(&res, `
-		SELECT post_id, forum_slug forum, thread, parent, u.nickname post_author, post_created, is_edited, post_message FROM post p
+	qres := tx.QueryRow(`
+		SELECT post_id, forum_slug forum, thread, parent, path, u.nickname post_author, post_created, is_edited, post_message FROM post p
 		JOIN forum f ON p.forum = f.forum_id
 		JOIN forum_user u ON post_author = u.forum_user_id
 		WHERE post_id = $1
 		`, id)
+	err := qres.Scan(&res.PostID, &res.Forum, &res.Thread, &res.Parent, pq.Array(&res.Path), &res.PostAuthor,
+		&res.PostCreated, &res.IsEdited, &res.PostMessage)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return res, &RecordNotFoundError{"Post", fmt.Sprintf("%v", id)}
@@ -232,26 +245,56 @@ func GetThreadPosts(slug_or_id string, args *models.ThreadPostsQueryArgs) ([]mod
 		return res, err
 	}
 	q := `
-		SELECT post_id, forum_slug forum, thread, parent, u.nickname post_author, post_created, is_edited, post_message FROM post p
+		SELECT p.post_id, forum_slug forum, p.thread, p.parent, u.nickname post_author, p.post_created, p.is_edited, p.post_message FROM post p
 		JOIN forum f ON p.forum = f.forum_id
-		JOIN forum_user u ON post_author = u.forum_user_id
-		WHERE thread = $1 `
-	if args.Since > 0 {
-		q += fmt.Sprintf("AND post_id > %v", args.Since)
-	}
+		JOIN forum_user u ON p.post_author = u.forum_user_id`
 	switch args.Sort {
-	case "flat":
+	case "tree":
+		if args.Since > 0 {
+			q += `
+				JOIN post sp ON sp.post_id = $2
+				WHERE p.path || p.post_id `
+			if args.Desc {
+				q += "< sp.path || sp.post_id "
+			} else {
+				q += "> sp.path || sp.post_id "
+			}
+			q += "AND p.thread = $1"
+		} else {
+			q += `
+				WHERE p.thread = $1`
+		}
 		q += `
-		ORDER BY post_created, post_id`
+			ORDER BY p.path || p.post_id `
+		if args.Desc {
+			q += "DESC"
+		}
+	default: // flat
+		q += `
+		WHERE p.thread = $1 `
+		if args.Since > 0 {
+			q += "AND p.post_id > $2"
+		}
+		q += `
+			ORDER BY p.post_created `
+		if args.Desc {
+			q += "DESC"
+		}
+		q += `, p.post_id `
+		if args.Desc {
+			q += "DESC"
+		}
 	}
 	if args.Limit > 0 {
 		q += fmt.Sprintf("\nLIMIT %v", args.Limit)
 	}
-	err = db.Select(&res, q, t.ThreadID)
+	if args.Since > 0 {
+		err = db.Select(&res, q, t.ThreadID, args.Since)
+	} else {
+		err = db.Select(&res, q, t.ThreadID)
+	}
 	if err != nil {
-		// if err == sql.ErrNoRows {
-		// 	return res, &RecordNotFoundError{"Post from thread", fmt.Sprintf("%v", t.ThreadID)}
-		// }
+		// if errg
 		return res, err
 	}
 
