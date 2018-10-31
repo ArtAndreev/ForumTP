@@ -14,10 +14,10 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
 # 2. Building main container Ubuntu with postgres
 FROM ubuntu:18.04
 
-RUN apt-get -y update
-
 ENV PGVER 10
-RUN apt-get install -y postgresql-$PGVER
+
+RUN apt-get -y update &&\
+    apt-get install -y postgresql-$PGVER
 
 # Run the rest of the commands as the ``postgres`` user created by the ``postgres-$PGVER`` package when it was ``apt-get installed``
 USER postgres
