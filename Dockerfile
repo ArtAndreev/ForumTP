@@ -1,6 +1,6 @@
 # vim:set ft=dockerfile:
 
-# 1. Building forum API server
+# 1. Build forum API server
 FROM golang:alpine as builder
 
 WORKDIR /src
@@ -11,7 +11,7 @@ RUN apk add --no-cache --virtual .build-deps \
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
 	go build -a -installsuffix cgo -ldflags="-w -s" -o forum-api
 
-# 2. Building main container Ubuntu with postgres
+# 2. Build main container Ubuntu with postgres
 FROM ubuntu:18.04
 
 ENV PGVER 10
@@ -45,7 +45,7 @@ VOLUME  ["/etc/postgresql", "/var/log/postgresql", "/var/lib/postgresql"]
 # Back to the root user
 USER root
 
-# 3. Add forum API server in main cointainer
+# 3. Add forum API server to the main cointainer
 WORKDIR /app
 COPY --from=builder /src/forum-api .
 COPY --from=builder /src/migrations ./migrations
