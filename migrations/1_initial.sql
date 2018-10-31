@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS post (
     forum integer REFERENCES forum NOT NULL,
     thread integer REFERENCES thread NOT NULL,
     parent integer DEFAULT 0,
+    path integer ARRAY,
     post_author integer REFERENCES forum_user NOT NULL,
     post_created timestamp with time zone DEFAULT now(),
     is_edited boolean DEFAULT FALSE NOT NULL,
