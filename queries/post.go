@@ -59,15 +59,15 @@ func CreatePosts(p *[]models.Post, path string) ([]models.Post, error) {
 		// insert
 		q := `
 			INSERT INTO post (forum, thread, parent, path, post_author, post_created, post_message)
-			VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING post_id`
+			VALUES ($1, $2, $3, (SELECT path FROM post WHERE post_id = $3) || (SELECT currval(pg_get_serial_sequence('post', 'post_id'))::integer), $4, $5, $6) RETURNING post_id`
 		var qres *sql.Row
-		if v.Parent != 0 {
-			path := parent.Path
-			path = append(path, int64(v.Parent))
-			qres = tx.QueryRow(q, f.ForumID, t.ThreadID, v.Parent, pq.Array(path), u.ForumUserID, now, v.PostMessage)
-		} else {
-			qres = tx.QueryRow(q, f.ForumID, t.ThreadID, v.Parent, pq.Array([]int{}), u.ForumUserID, now, v.PostMessage)
-		}
+		// if v.Parent != 0 {
+		// 	path := parent.Path
+		// 	path = append(path, int64(v.Parent))
+		// 	qres = tx.QueryRow(q, f.ForumID, t.ThreadID, v.Parent, pq.Array(path), u.ForumUserID, now, v.PostMessage)
+		// } else {
+		qres = tx.QueryRow(q, f.ForumID, t.ThreadID, v.Parent, u.ForumUserID, now, v.PostMessage)
+		// }
 
 		lastInsertedID := 0
 		err = qres.Scan(&lastInsertedID)
@@ -253,11 +253,11 @@ func GetThreadPosts(slug_or_id string, args *models.ThreadPostsQueryArgs) ([]mod
 		if args.Since > 0 {
 			q += `
 				JOIN post sp ON sp.post_id = $2
-				WHERE p.path || p.post_id `
+				WHERE p.path `
 			if args.Desc {
-				q += "< sp.path || sp.post_id "
+				q += "< sp.path "
 			} else {
-				q += "> sp.path || sp.post_id "
+				q += "> sp.path "
 			}
 			q += "AND p.thread = $1"
 		} else {
@@ -265,15 +265,71 @@ func GetThreadPosts(slug_or_id string, args *models.ThreadPostsQueryArgs) ([]mod
 				WHERE p.thread = $1`
 		}
 		q += `
-			ORDER BY p.path || p.post_id `
+			ORDER BY p.path `
 		if args.Desc {
 			q += "DESC"
 		}
+		if args.Limit > 0 {
+			if args.Since > 0 {
+				q += `
+					LIMIT $3`
+			} else {
+				q += `
+					LIMIT $2`
+			}
+		}
+	case "parent_tree":
+		q = `
+			WITH root_posts AS (
+			SELECT p.post_id FROM post p`
+		if args.Since > 0 {
+			q += `
+				JOIN post sp ON sp.post_id = $2`
+			if args.Desc {
+				q += `WHERE p.path[1] < sp.path[1] AND p.thread = $1 AND p.parent = 0 `
+			} else {
+				q += `WHERE p.path > sp.path AND p.thread = $1 AND p.parent = 0 `
+			}
+		} else {
+			q += `
+				WHERE p.thread = $1 AND p.parent = 0 `
+		}
+		q += `
+			ORDER BY p.path[1] `
+		if args.Desc {
+			q += "DESC"
+		}
+		if args.Limit > 0 {
+			if args.Since > 0 {
+				q += `
+					LIMIT $3`
+			} else {
+				q += `
+					LIMIT $2`
+			}
+		}
+		q += `
+			)
+			SELECT p.post_id, forum_slug forum, p.thread, p.parent, u.nickname post_author, p.post_created, p.is_edited, p.post_message FROM post p
+			JOIN forum f ON p.forum = f.forum_id
+			JOIN forum_user u ON p.post_author = u.forum_user_id`
+		q += ` 
+			WHERE p.path[1] in (select post_id from root_posts)`
+		q += `
+			ORDER BY p.path[1] `
+		if args.Desc {
+			q += "DESC"
+		}
+		q += `, p.path`
 	default: // flat
 		q += `
-		WHERE p.thread = $1 `
+			WHERE p.thread = $1 `
 		if args.Since > 0 {
-			q += "AND p.post_id > $2"
+			if args.Desc {
+				q += "AND p.post_id < $2"
+			} else {
+				q += "AND p.post_id > $2"
+			}
 		}
 		q += `
 			ORDER BY p.post_created `
@@ -284,17 +340,31 @@ func GetThreadPosts(slug_or_id string, args *models.ThreadPostsQueryArgs) ([]mod
 		if args.Desc {
 			q += "DESC"
 		}
-	}
-	if args.Limit > 0 {
-		q += fmt.Sprintf("\nLIMIT %v", args.Limit)
+		if args.Limit > 0 {
+			if args.Since > 0 {
+				q += `
+					LIMIT $3`
+			} else {
+				q += `
+					LIMIT $2`
+			}
+		}
 	}
 	if args.Since > 0 {
-		err = db.Select(&res, q, t.ThreadID, args.Since)
+		if args.Limit > 0 {
+			err = db.Select(&res, q, t.ThreadID, args.Since, args.Limit)
+		} else {
+			err = db.Select(&res, q, t.ThreadID, args.Since)
+		}
+
 	} else {
-		err = db.Select(&res, q, t.ThreadID)
+		if args.Limit > 0 {
+			err = db.Select(&res, q, t.ThreadID, args.Limit)
+		} else {
+			err = db.Select(&res, q, t.ThreadID)
+		}
 	}
 	if err != nil {
-		// if errg
 		return res, err
 	}
 
