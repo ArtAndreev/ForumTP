@@ -1,0 +1,17 @@
+# github.com/gorilla/context v1.1.1
+github.com/gorilla/context
+# github.com/gorilla/mux v1.6.2
+github.com/gorilla/mux
+# github.com/gorilla/schema v1.0.2
+github.com/gorilla/schema
+# github.com/jmoiron/sqlx v1.2.0
+github.com/jmoiron/sqlx
+github.com/jmoiron/sqlx/reflectx
+# github.com/lib/pq v1.0.0
+github.com/lib/pq
+github.com/lib/pq/oid
+# github.com/rubenv/sql-migrate v0.0.0-20180704111356-3f452fc0ebeb
+github.com/rubenv/sql-migrate
+github.com/rubenv/sql-migrate/sqlparse
+# gopkg.in/gorp.v1 v1.7.1
+gopkg.in/gorp.v1
