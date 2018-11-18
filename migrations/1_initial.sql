@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS post (
 );
 
 CREATE TABLE IF NOT EXISTS vote (
-    nickname integer REFERENCES forum_user UNIQUE NOT NULL,
+    nickname integer REFERENCES forum_user NOT NULL,
     thread integer REFERENCES thread NOT NULL,
     voice integer NOT NULL,
     CONSTRAINT vote_constraint CHECK (voice IN (-1, 1)),
