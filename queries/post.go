@@ -24,26 +24,29 @@ func CreatePosts(p *[]models.Post, path string) ([]models.Post, error) {
 		return res, err
 	}
 
+	// get current time, we'll use it for all inserted messages
+	now := time.Time{}
+	nr := db.QueryRow("SELECT * FROM now()")
+	err = nr.Scan(&now)
+	if err != nil {
+		return res, err
+	}
+
 	tx, err := db.Beginx()
 	if err != nil {
 		return res, err
 	}
 	defer tx.Rollback()
 
-	// get current time, we'll use it for all inserted messages
-	now := time.Time{}
-	nr := tx.QueryRow("SELECT * FROM now()")
-	err = nr.Scan(&now)
-	if err != nil {
-		return res, err
-	}
-
-	for _, v := range *p {
+	uIDs := make([]int, len(*p))
+	for k, v := range *p {
 		// get user
 		u, err := txGetUserByNickname(v.PostAuthor, tx)
 		if err != nil {
 			return res, err
 		}
+		uIDs[k] = u.ForumUserID
+
 		// check parent message belongs to the same thread
 		parent := models.Post{}
 		if v.Parent != 0 {
@@ -56,32 +59,42 @@ func CreatePosts(p *[]models.Post, path string) ([]models.Post, error) {
 				return res, ErrParentPostIsNotInThisThread
 			}
 		}
-		// insert
-		q := `
-			INSERT INTO post (forum, thread, parent, path, post_author, post_created, post_message)
-			VALUES ($1, $2, $3, (SELECT path FROM post WHERE post_id = $3) || (SELECT currval(pg_get_serial_sequence('post', 'post_id'))::integer), $4, $5, $6) RETURNING post_id`
-		var qres *sql.Row
-		// if v.Parent != 0 {
-		// 	path := parent.Path
-		// 	path = append(path, int64(v.Parent))
-		// 	qres = tx.QueryRow(q, f.ForumID, t.ThreadID, v.Parent, pq.Array(path), u.ForumUserID, now, v.PostMessage)
-		// } else {
-		qres = tx.QueryRow(q, f.ForumID, t.ThreadID, v.Parent, u.ForumUserID, now, v.PostMessage)
-		// }
+		// get path
+		(*p)[k].Path = parent.Path
 
-		lastInsertedID := 0
-		err = qres.Scan(&lastInsertedID)
+		// get new primary key id
+		val := tx.QueryRow("SELECT nextval(pg_get_serial_sequence('post', 'post_id'))")
+		err = val.Scan(&(*p)[k].PostID)
 		if err != nil {
 			return res, err
 		}
+		(*p)[k].Path = append((*p)[k].Path, int64((*p)[k].PostID))
 
-		// get new res
-		last, err := txGetPostByID(lastInsertedID, tx)
-		if err != nil {
-			return res, err
-		}
-		res = append(res, last)
+		// update result forum id
+		(*p)[k].Forum = f.ForumSlug
+		(*p)[k].Thread = t.ThreadID
+		(*p)[k].PostCreated = now
 	}
+
+	stmt, err := tx.Prepare(pq.CopyIn("post", "post_id", "forum", "thread", "parent", "path", "post_author", "post_created", "post_message"))
+	if err != nil {
+		return res, err
+	}
+	defer stmt.Close()
+
+	for k, v := range *p {
+		_, err = stmt.Exec(v.PostID, f.ForumID, t.ThreadID, v.Parent, pq.Array(v.Path), uIDs[k], now, v.PostMessage)
+		if err != nil {
+			return res, err
+		}
+	}
+
+	_, err = stmt.Exec()
+	if err != nil {
+		return res, err
+	}
+
+	res = *p
 
 	return res, tx.Commit()
 }
