@@ -193,6 +193,7 @@ func GetPostInfoByID(id int, params *[]string) (*models.PostInfo, error) {
 			ThreadAuthor:  all.ThreadAuthor,
 			ThreadCreated: all.ThreadCreated,
 			ThreadMessage: all.ThreadMessage,
+			Votes:         all.Votes,
 		}
 	}
 	if _, ok := queryArgs["forum"]; ok {
