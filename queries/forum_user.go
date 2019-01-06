@@ -153,29 +153,14 @@ func GetAllUsersInForum(s string, params *models.UserQueryParams) (*models.Forum
 
 	q := strings.Builder{}
 	q.WriteString(`
-		WITH forum_threads AS (
-			SELECT thread_id, thread_author FROM thread t
-			WHERE forum = $1
-		)
-		SELECT DISTINCT nickname, fullname, email, about FROM forum_threads ft
-		JOIN post p ON p.thread = ft.thread_id
-		JOIN forum_user u ON u.nickname = post_author`)
+		SELECT nickname, fullname, email, about FROM forum_user u
+		JOIN users_in_forum uif ON uif.forum_user = u.nickname
+		WHERE uif.forum = $1`) // all post authors
 	if params.Since != "" {
 		if params.Desc {
-			q.WriteString(" WHERE nickname < $2")
+			q.WriteString(" AND nickname < $2")
 		} else {
-			q.WriteString(" WHERE nickname > $2")
-		}
-	}
-	q.WriteString(`
-		UNION
-		SELECT DISTINCT nickname, fullname, email, about FROM forum_threads ft
-		JOIN forum_user u ON u.nickname = ft.thread_author`)
-	if params.Since != "" {
-		if params.Desc {
-			q.WriteString(" WHERE nickname < $2")
-		} else {
-			q.WriteString(" WHERE nickname > $2")
+			q.WriteString(" AND nickname > $2")
 		}
 	}
 	q.WriteString(" ORDER BY nickname")

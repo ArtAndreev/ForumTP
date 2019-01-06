@@ -17,6 +17,10 @@ func CreatePosts(p *models.PostList, path string) (*models.PostList, error) {
 		return nil, err
 	}
 
+	if len(*p) == 0 {
+		return &models.PostList{}, nil
+	}
+
 	// get current time, we'll use it for all inserted messages
 	now := time.Time{}
 	err = db.QueryRow("SELECT * FROM now()").Scan(&now)
@@ -100,7 +104,6 @@ func CreatePosts(p *models.PostList, path string) (*models.PostList, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	_, err = tx.Exec("UPDATE forum SET posts = posts + $1 WHERE forum_slug = $2", len(*p), t.Forum)
 	if err != nil {
 		return nil, err
@@ -109,7 +112,28 @@ func CreatePosts(p *models.PostList, path string) (*models.PostList, error) {
 	res := &models.PostList{}
 	*res = *p
 
-	return res, tx.Commit()
+	err = tx.Commit()
+	if err != nil {
+		return res, err
+	}
+
+	// insert without transaction!
+	uifstmt, err := db.Prepare(`
+		INSERT INTO users_in_forum (forum_user, forum) VALUES ($1, $2) 
+		ON CONFLICT (forum_user, forum) DO NOTHING`)
+	if err != nil {
+		return res, err
+	}
+	defer uifstmt.Close()
+	for _, v := range *p {
+		_, err = uifstmt.Exec(
+			v.PostAuthor, t.Forum)
+		if err != nil {
+			return res, err
+		}
+	}
+
+	return res, nil
 }
 
 func GetPostByID(id int) (*models.Post, error) {

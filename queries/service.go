@@ -10,6 +10,10 @@ func ClearDatabase() error {
 		return err
 	}
 	defer tx.Rollback()
+	_, err = tx.Exec("TRUNCATE TABLE users_in_forum CASCADE")
+	if err != nil {
+		return err
+	}
 	_, err = tx.Exec("TRUNCATE TABLE vote CASCADE")
 	if err != nil {
 		return err

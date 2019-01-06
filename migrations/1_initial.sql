@@ -47,6 +47,12 @@ CREATE TABLE IF NOT EXISTS vote (
     CONSTRAINT vote_unique_all UNIQUE (nickname, thread)
 );
 
+CREATE TABLE IF NOT EXISTS users_in_forum (
+    forum_user citext REFERENCES forum_user NOT NULL,
+    forum citext REFERENCES forum NOT NULL,
+    CONSTRAINT unique_user_per_forum UNIQUE (forum, forum_user)
+);
+
 -- +migrate StatementBegin
 CREATE OR REPLACE FUNCTION increment_thread_counter() RETURNS TRIGGER AS $increment_thread_counter$
     BEGIN
@@ -72,7 +78,6 @@ CREATE OR REPLACE FUNCTION recount_vote_value() RETURNS TRIGGER AS $recount_vote
             RETURN NEW;
         END IF;
         RETURN NULL;
-        UPDATE thread SET votes = votes + 1 WHERE thread_id = NEW.thread;
     END;
 $recount_vote_value$ LANGUAGE plpgsql;
 -- +migrate StatementEnd
@@ -91,6 +96,7 @@ DROP FUNCTION IF EXISTS recount_vote_value();
 DROP TRIGGER IF EXISTS increment_thread_counter ON thread;
 DROP FUNCTION IF EXISTS increment_thread_counter();
 
+DROP TABLE IF EXISTS users_in_forum;
 DROP TABLE IF EXISTS vote;
 DROP TABLE IF EXISTS post;
 DROP TABLE IF EXISTS thread;

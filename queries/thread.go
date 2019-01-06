@@ -47,6 +47,15 @@ func CreateThread(t *models.Thread) (*models.Thread, error) {
 		return res, err
 	}
 
+	_, err = db.Exec(`INSERT INTO users_in_forum (forum_user, forum) 
+		VALUES (
+			(SELECT nickname FROM forum_user WHERE nickname = $1), 
+			(SELECT forum_slug FROM forum WHERE forum_slug = $2)
+		) ON CONFLICT (forum_user, forum) DO NOTHING`, t.ThreadAuthor, t.Forum)
+	if err != nil {
+		return res, err
+	}
+
 	return res, nil
 }
 
