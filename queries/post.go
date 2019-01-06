@@ -101,6 +101,11 @@ func CreatePosts(p *[]models.Post, path string) ([]models.Post, error) {
 		return nil, err
 	}
 
+	_, err = tx.Exec("UPDATE forum SET posts = posts + $1 WHERE forum_slug = $2", len(*p), t.Forum)
+	if err != nil {
+		return nil, err
+	}
+
 	res := make([]models.Post, len(*p))
 	copy(res, *p)
 

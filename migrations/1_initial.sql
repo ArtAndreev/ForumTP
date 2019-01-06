@@ -48,18 +48,6 @@ CREATE TABLE IF NOT EXISTS vote (
 );
 
 -- +migrate StatementBegin
-CREATE OR REPLACE FUNCTION increment_post_counter() RETURNS TRIGGER AS $increment_post_counter$
-    BEGIN
-        UPDATE forum SET posts = posts + 1 WHERE forum_slug = NEW.forum;
-        RETURN NEW;
-    END;
-$increment_post_counter$ LANGUAGE plpgsql;
--- +migrate StatementEnd
-
-CREATE TRIGGER increment_post_counter AFTER INSERT ON post 
-FOR EACH ROW EXECUTE PROCEDURE increment_post_counter();
-
--- +migrate StatementBegin
 CREATE OR REPLACE FUNCTION increment_thread_counter() RETURNS TRIGGER AS $increment_thread_counter$
     BEGIN
         UPDATE forum SET threads = threads + 1 WHERE forum_slug = NEW.forum;
@@ -102,9 +90,6 @@ DROP FUNCTION IF EXISTS recount_vote_value();
 
 DROP TRIGGER IF EXISTS increment_thread_counter ON thread;
 DROP FUNCTION IF EXISTS increment_thread_counter();
-
-DROP TRIGGER IF EXISTS increment_post_counter ON post;
-DROP FUNCTION IF EXISTS increment_post_counter();
 
 DROP TABLE IF EXISTS vote;
 DROP TABLE IF EXISTS post;
