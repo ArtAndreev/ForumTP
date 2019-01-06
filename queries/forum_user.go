@@ -11,19 +11,19 @@ import (
 	"github.com/ArtAndreev/ForumTP/models"
 )
 
-func CreateUser(u *models.ForumUser) ([]*models.ForumUser, error) {
-	var res []*models.ForumUser
+func CreateUser(u *models.ForumUser) (*models.ForumUserList, error) {
 	if u.Nickname == "" || u.Email == "" {
-		return res, &NullFieldError{"User", "nickname and/or email"}
+		return nil, &NullFieldError{"User", "nickname and/or email"}
 	}
 
+	res := &models.ForumUserList{}
 	r1, err := GetUserByNickname(u.Nickname)
 	if err != nil {
 		if _, ok := err.(*RecordNotFoundError); !ok {
 			return res, err // db error
 		}
 	} else { // record exists
-		res = append(res, r1)
+		*res = append(*res, *r1)
 	}
 
 	r2, err := GetUserByEmail(u.Email)
@@ -33,10 +33,10 @@ func CreateUser(u *models.ForumUser) ([]*models.ForumUser, error) {
 		}
 	} else { // record exists
 		if r1.Email != r2.Email {
-			res = append(res, r2)
+			*res = append(*res, *r2)
 		}
 	}
-	if len(res) != 0 {
+	if len(*res) != 0 {
 		return res, &UniqueFieldValueAlreadyExistsError{"User", "nickname and/or email"}
 	}
 
@@ -47,9 +47,8 @@ func CreateUser(u *models.ForumUser) ([]*models.ForumUser, error) {
 	if err != nil {
 		return res, err
 	}
-	inserted := &models.ForumUser{}
-	*inserted = *u
-	res = append(res, inserted)
+
+	*res = append(*res, *u)
 
 	return res, nil
 }
@@ -146,7 +145,7 @@ func UpdateUser(n string, u *models.ForumUser) (*models.ForumUser, error) {
 	return res, nil
 }
 
-func GetAllUsersInForum(s string, params *models.UserQueryParams) ([]models.ForumUser, error) {
+func GetAllUsersInForum(s string, params *models.UserQueryParams) (*models.ForumUserList, error) {
 	err := CheckExistenceOfForum(s)
 	if err != nil {
 		return nil, err
@@ -186,11 +185,11 @@ func GetAllUsersInForum(s string, params *models.UserQueryParams) ([]models.Foru
 	if params.Limit != 0 {
 		q.WriteString(fmt.Sprintf(" LIMIT %v", params.Limit))
 	}
-	res := []models.ForumUser{}
+	res := &models.ForumUserList{}
 	if params.Since == "" {
-		err = db.Select(&res, q.String(), s)
+		err = db.Select(res, q.String(), s)
 	} else {
-		err = db.Select(&res, q.String(), s, params.Since)
+		err = db.Select(res, q.String(), s, params.Since)
 	}
 	if err != nil {
 		return res, err

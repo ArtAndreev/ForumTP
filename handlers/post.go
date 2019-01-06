@@ -1,8 +1,8 @@
 package handlers
 
 import (
-	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"strconv"
@@ -15,16 +15,17 @@ import (
 )
 
 func CreatePosts(w http.ResponseWriter, r *http.Request) {
-	p := &[]models.Post{}
-	err := cleanBody(r, p)
+	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		if err == ErrWrongJSON {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	r.Body.Close()
+	p := &models.PostList{}
+	err = p.UnmarshalJSON(body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	path := mux.Vars(r)["slug_or_id"]
@@ -32,7 +33,7 @@ func CreatePosts(w http.ResponseWriter, r *http.Request) {
 	res, err := queries.CreatePosts(p, path)
 	if err != nil {
 		if err == queries.ErrParentPostIsNotInThisThread {
-			j, jErr := json.Marshal(models.ErrorMessage{Message: err.Error()})
+			j, jErr := models.ErrorMessage{Message: err.Error()}.MarshalJSON()
 			if jErr != nil {
 				log.Println(err)
 				w.WriteHeader(http.StatusInternalServerError)
@@ -44,7 +45,7 @@ func CreatePosts(w http.ResponseWriter, r *http.Request) {
 		}
 		switch err.(type) {
 		case *queries.NullFieldError:
-			j, jErr := json.Marshal(models.ErrorMessage{Message: err.Error()})
+			j, jErr := models.ErrorMessage{Message: err.Error()}.MarshalJSON()
 			if jErr != nil {
 				log.Println(err)
 				w.WriteHeader(http.StatusInternalServerError)
@@ -53,7 +54,7 @@ func CreatePosts(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintln(w, string(j))
 		case *queries.RecordNotFoundError:
-			j, jErr := json.Marshal(models.ErrorMessage{Message: err.Error()})
+			j, jErr := models.ErrorMessage{Message: err.Error()}.MarshalJSON()
 			if jErr != nil {
 				log.Println(err)
 				w.WriteHeader(http.StatusInternalServerError)
@@ -69,7 +70,7 @@ func CreatePosts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// if records have been inserted successfully
-	j, err := json.Marshal(res)
+	j, err := res.MarshalJSON()
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -95,7 +96,7 @@ func GetPost(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err.(type) {
 		case *queries.RecordNotFoundError:
-			j, jErr := json.Marshal(models.ErrorMessage{Message: err.Error()})
+			j, jErr := models.ErrorMessage{Message: err.Error()}.MarshalJSON()
 			if jErr != nil {
 				log.Println(err)
 				w.WriteHeader(http.StatusInternalServerError)
@@ -110,7 +111,7 @@ func GetPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	j, err := json.Marshal(res)
+	j, err := res.MarshalJSON()
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -120,16 +121,17 @@ func GetPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdatePost(w http.ResponseWriter, r *http.Request) {
-	p := &models.Post{}
-	err := cleanBody(r, p)
+	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		if err == ErrWrongJSON {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	r.Body.Close()
+	p := &models.Post{}
+	err = p.UnmarshalJSON(body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	ids := mux.Vars(r)["id"]
@@ -143,7 +145,7 @@ func UpdatePost(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err.(type) {
 		case *queries.RecordNotFoundError:
-			j, jErr := json.Marshal(models.ErrorMessage{Message: err.Error()})
+			j, jErr := models.ErrorMessage{Message: err.Error()}.MarshalJSON()
 			if jErr != nil {
 				log.Println(err)
 				w.WriteHeader(http.StatusInternalServerError)
@@ -158,7 +160,7 @@ func UpdatePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	j, err := json.Marshal(res)
+	j, err := res.MarshalJSON()
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -201,7 +203,7 @@ func GetThreadPosts(w http.ResponseWriter, r *http.Request) {
 	res, err := queries.GetThreadPosts(path, params)
 	if err != nil {
 		if err == queries.ErrParentPostIsNotInThisThread {
-			j, jErr := json.Marshal(models.ErrorMessage{Message: err.Error()})
+			j, jErr := models.ErrorMessage{Message: err.Error()}.MarshalJSON()
 			if jErr != nil {
 				log.Println(err)
 				w.WriteHeader(http.StatusInternalServerError)
@@ -213,7 +215,7 @@ func GetThreadPosts(w http.ResponseWriter, r *http.Request) {
 		}
 		switch err.(type) {
 		case *queries.NullFieldError:
-			j, jErr := json.Marshal(models.ErrorMessage{Message: err.Error()})
+			j, jErr := models.ErrorMessage{Message: err.Error()}.MarshalJSON()
 			if jErr != nil {
 				log.Println(err)
 				w.WriteHeader(http.StatusInternalServerError)
@@ -222,7 +224,7 @@ func GetThreadPosts(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintln(w, string(j))
 		case *queries.RecordNotFoundError:
-			j, jErr := json.Marshal(models.ErrorMessage{Message: err.Error()})
+			j, jErr := models.ErrorMessage{Message: err.Error()}.MarshalJSON()
 			if jErr != nil {
 				log.Println(err)
 				w.WriteHeader(http.StatusInternalServerError)
@@ -238,7 +240,7 @@ func GetThreadPosts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// if records have been inserted successfully
-	j, err := json.Marshal(res)
+	j, err := res.MarshalJSON()
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)

@@ -4,6 +4,7 @@ import (
 	"time"
 )
 
+//easyjson:json
 type Thread struct {
 	ThreadID      int        `json:"id" db:"thread_id"`
 	Forum         string     `json:"forum"`
@@ -14,3 +15,6 @@ type Thread struct {
 	ThreadMessage string     `json:"message" db:"thread_message"`
 	Votes         int        `json:"votes"`
 }
+
+//easyjson:json
+type ThreadList []Thread

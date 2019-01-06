@@ -11,7 +11,7 @@ import (
 	"github.com/ArtAndreev/ForumTP/models"
 )
 
-func CreatePosts(p *[]models.Post, path string) ([]models.Post, error) {
+func CreatePosts(p *models.PostList, path string) (*models.PostList, error) {
 	t, err := GetThreadBySlugOrID(path)
 	if err != nil {
 		return nil, err
@@ -106,8 +106,8 @@ func CreatePosts(p *[]models.Post, path string) ([]models.Post, error) {
 		return nil, err
 	}
 
-	res := make([]models.Post, len(*p))
-	copy(res, *p)
+	res := &models.PostList{}
+	*res = *p
 
 	return res, tx.Commit()
 }
@@ -233,7 +233,7 @@ func UpdatePostByID(id int, p *models.Post) (*models.Post, error) {
 	return res, nil
 }
 
-func GetThreadPosts(slugOrID string, args *models.ThreadPostsQueryArgs) ([]models.Post, error) {
+func GetThreadPosts(slugOrID string, args *models.ThreadPostsQueryArgs) (*models.PostList, error) {
 	threadID, err := GetThreadIDBySlugOrID(slugOrID)
 	if err != nil {
 		return nil, err
@@ -324,19 +324,19 @@ func GetThreadPosts(slugOrID string, args *models.ThreadPostsQueryArgs) ([]model
 			}
 		}
 	}
-	res := []models.Post{}
+	res := &models.PostList{}
 	if args.Since > 0 {
 		if args.Limit > 0 {
-			err = db.Select(&res, q.String(), threadID, args.Since, args.Limit)
+			err = db.Select(res, q.String(), threadID, args.Since, args.Limit)
 		} else {
-			err = db.Select(&res, q.String(), threadID, args.Since)
+			err = db.Select(res, q.String(), threadID, args.Since)
 		}
 
 	} else {
 		if args.Limit > 0 {
-			err = db.Select(&res, q.String(), threadID, args.Limit)
+			err = db.Select(res, q.String(), threadID, args.Limit)
 		} else {
-			err = db.Select(&res, q.String(), threadID)
+			err = db.Select(res, q.String(), threadID)
 		}
 	}
 	if err != nil {

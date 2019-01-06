@@ -1,8 +1,8 @@
 package handlers
 
 import (
-	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"strconv"
@@ -15,16 +15,17 @@ import (
 )
 
 func CreateThread(w http.ResponseWriter, r *http.Request) {
-	t := &models.Thread{}
-	err := cleanBody(r, t)
+	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		if err == ErrWrongJSON {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	r.Body.Close()
+	t := &models.Thread{}
+	err = t.UnmarshalJSON(body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	t.Forum = mux.Vars(r)["slug"]
@@ -33,7 +34,7 @@ func CreateThread(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err.(type) {
 		case *queries.NullFieldError:
-			j, jErr := json.Marshal(models.ErrorMessage{Message: err.Error()})
+			j, jErr := models.ErrorMessage{Message: err.Error()}.MarshalJSON()
 			if jErr != nil {
 				log.Println(err)
 				w.WriteHeader(http.StatusInternalServerError)
@@ -42,7 +43,7 @@ func CreateThread(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintln(w, string(j))
 		case *queries.UniqueFieldValueAlreadyExistsError:
-			j, err := json.Marshal(res)
+			j, err := res.MarshalJSON()
 			if err != nil {
 				log.Println(err)
 				w.WriteHeader(http.StatusInternalServerError)
@@ -51,7 +52,7 @@ func CreateThread(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusConflict)
 			fmt.Fprintln(w, string(j))
 		case *queries.RecordNotFoundError:
-			j, jErr := json.Marshal(models.ErrorMessage{Message: err.Error()})
+			j, jErr := models.ErrorMessage{Message: err.Error()}.MarshalJSON()
 			if jErr != nil {
 				log.Println(err)
 				w.WriteHeader(http.StatusInternalServerError)
@@ -67,7 +68,7 @@ func CreateThread(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// if record has been inserted successfully
-	j, err := json.Marshal(res)
+	j, err := res.MarshalJSON()
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -113,7 +114,7 @@ func GetThreads(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err.(type) {
 		case *queries.RecordNotFoundError:
-			j, jErr := json.Marshal(models.ErrorMessage{Message: err.Error()})
+			j, jErr := models.ErrorMessage{Message: err.Error()}.MarshalJSON()
 			if jErr != nil {
 				log.Println(err)
 				w.WriteHeader(http.StatusInternalServerError)
@@ -128,7 +129,7 @@ func GetThreads(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	j, jErr := json.Marshal(res)
+	j, jErr := res.MarshalJSON()
 	if jErr != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -144,7 +145,7 @@ func GetThread(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err.(type) {
 		case *queries.RecordNotFoundError:
-			j, jErr := json.Marshal(models.ErrorMessage{Message: err.Error()})
+			j, jErr := models.ErrorMessage{Message: err.Error()}.MarshalJSON()
 			if jErr != nil {
 				log.Println(err)
 				w.WriteHeader(http.StatusInternalServerError)
@@ -159,7 +160,7 @@ func GetThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	j, err := json.Marshal(res)
+	j, err := res.MarshalJSON()
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -169,16 +170,17 @@ func GetThread(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdateThread(w http.ResponseWriter, r *http.Request) {
-	t := &models.Thread{}
-	err := cleanBody(r, t)
+	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		if err == ErrWrongJSON {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	r.Body.Close()
+	t := &models.Thread{}
+	err = t.UnmarshalJSON(body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	path := mux.Vars(r)["slug_or_id"]
@@ -187,7 +189,7 @@ func UpdateThread(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err.(type) {
 		case *queries.NullFieldError:
-			j, jErr := json.Marshal(models.ErrorMessage{Message: err.Error()})
+			j, jErr := models.ErrorMessage{Message: err.Error()}.MarshalJSON()
 			if jErr != nil {
 				log.Println(err)
 				w.WriteHeader(http.StatusInternalServerError)
@@ -196,7 +198,7 @@ func UpdateThread(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintln(w, string(j))
 		// case *queries.UniqueFieldValueAlreadyExistsError:
-		// 	j, err := json.Marshal(res)
+		// 	j, err := res.MarshalJSON()
 		// 	if err != nil {
 		// 		log.Println(err)
 		// 		w.WriteHeader(http.StatusInternalServerError)
@@ -205,7 +207,7 @@ func UpdateThread(w http.ResponseWriter, r *http.Request) {
 		// 	w.WriteHeader(http.StatusConflict)
 		// 	fmt.Fprintln(w, string(j))
 		case *queries.RecordNotFoundError:
-			j, jErr := json.Marshal(models.ErrorMessage{Message: err.Error()})
+			j, jErr := models.ErrorMessage{Message: err.Error()}.MarshalJSON()
 			if jErr != nil {
 				log.Println(err)
 				w.WriteHeader(http.StatusInternalServerError)
@@ -220,7 +222,7 @@ func UpdateThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	j, err := json.Marshal(res)
+	j, err := res.MarshalJSON()
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)

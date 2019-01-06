@@ -136,7 +136,7 @@ func GetThreadIDBySlugOrID(slugOrID string) (int, error) {
 	return res, nil
 }
 
-func GetAllThreadsInForum(s string, params *models.ThreadQueryParams) ([]models.Thread, error) {
+func GetAllThreadsInForum(s string, params *models.ThreadQueryParams) (*models.ThreadList, error) {
 	err := CheckExistenceOfForum(s)
 	if err != nil {
 		return nil, err
@@ -159,11 +159,11 @@ func GetAllThreadsInForum(s string, params *models.ThreadQueryParams) ([]models.
 	if params.Limit != 0 {
 		q.WriteString(fmt.Sprintf("\nLIMIT %v", params.Limit))
 	}
-	res := []models.Thread{}
+	res := &models.ThreadList{}
 	if params.Since == nt {
-		err = db.Select(&res, q.String(), s)
+		err = db.Select(res, q.String(), s)
 	} else {
-		err = db.Select(&res, q.String(), s, params.Since)
+		err = db.Select(res, q.String(), s, params.Since)
 	}
 	if err != nil {
 		return res, err

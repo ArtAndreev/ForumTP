@@ -1,8 +1,8 @@
 package handlers
 
 import (
-	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"strconv"
@@ -14,16 +14,17 @@ import (
 )
 
 func CreateUser(w http.ResponseWriter, r *http.Request) {
-	u := &models.ForumUser{}
-	err := cleanBody(r, u)
+	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		if err == ErrWrongJSON {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	r.Body.Close()
+	u := &models.ForumUser{}
+	err = u.UnmarshalJSON(body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	u.Nickname = mux.Vars(r)["nickname"]
@@ -32,7 +33,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err.(type) {
 		case *queries.NullFieldError:
-			j, jErr := json.Marshal(models.ErrorMessage{Message: err.Error()})
+			j, jErr := models.ErrorMessage{Message: err.Error()}.MarshalJSON()
 			if jErr != nil {
 				log.Println(err)
 				w.WriteHeader(http.StatusInternalServerError)
@@ -41,7 +42,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintln(w, string(j))
 		case *queries.UniqueFieldValueAlreadyExistsError:
-			j, err := json.Marshal(res)
+			j, err := res.MarshalJSON()
 			if err != nil {
 				log.Println(err)
 				w.WriteHeader(http.StatusInternalServerError)
@@ -57,7 +58,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// if record has been inserted successfully
-	j, err := json.Marshal(res[0])
+	j, err := (*res)[0].MarshalJSON()
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -72,7 +73,7 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err.(type) {
 		case *queries.RecordNotFoundError:
-			j, jErr := json.Marshal(models.ErrorMessage{Message: err.Error()})
+			j, jErr := models.ErrorMessage{Message: err.Error()}.MarshalJSON()
 			if jErr != nil {
 				log.Println(err)
 				w.WriteHeader(http.StatusInternalServerError)
@@ -87,7 +88,7 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	j, jErr := json.Marshal(res)
+	j, jErr := res.MarshalJSON()
 	if jErr != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -97,16 +98,17 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdateUser(w http.ResponseWriter, r *http.Request) {
-	u := &models.ForumUser{}
-	err := cleanBody(r, u)
+	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		if err == ErrWrongJSON {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	r.Body.Close()
+	u := &models.ForumUser{}
+	err = u.UnmarshalJSON(body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
@@ -114,7 +116,7 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err.(type) {
 		case *queries.RecordNotFoundError:
-			j, jErr := json.Marshal(models.ErrorMessage{Message: err.Error()})
+			j, jErr := models.ErrorMessage{Message: err.Error()}.MarshalJSON()
 			if jErr != nil {
 				log.Println(err)
 				w.WriteHeader(http.StatusInternalServerError)
@@ -123,7 +125,7 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
 			fmt.Fprintln(w, string(j))
 		case *queries.UniqueFieldValueAlreadyExistsError:
-			j, jErr := json.Marshal(models.ErrorMessage{Message: err.Error()})
+			j, jErr := models.ErrorMessage{Message: err.Error()}.MarshalJSON()
 			if jErr != nil {
 				log.Println(err)
 				w.WriteHeader(http.StatusInternalServerError)
@@ -138,7 +140,7 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	j, err := json.Marshal(res)
+	j, err := res.MarshalJSON()
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -172,7 +174,7 @@ func GetForumUsers(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err.(type) {
 		case *queries.RecordNotFoundError:
-			j, jErr := json.Marshal(models.ErrorMessage{Message: err.Error()})
+			j, jErr := models.ErrorMessage{Message: err.Error()}.MarshalJSON()
 			if jErr != nil {
 				log.Println(err)
 				w.WriteHeader(http.StatusInternalServerError)
@@ -187,7 +189,7 @@ func GetForumUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	j, jErr := json.Marshal(res)
+	j, jErr := res.MarshalJSON()
 	if jErr != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)

@@ -4,6 +4,7 @@ import (
 	"time"
 )
 
+//easyjson:json
 type Post struct {
 	PostID      int       `json:"id" db:"post_id"`
 	Forum       string    `json:"forum"`
@@ -16,6 +17,9 @@ type Post struct {
 	PostMessage string    `json:"message" db:"post_message"`
 }
 
+//easyjson:json
+type PostList []Post
+
 type PostInfoAllFields struct {
 	Post
 	Forum
@@ -23,6 +27,7 @@ type PostInfoAllFields struct {
 	ForumUser
 }
 
+//easyjson:json
 type PostInfo struct {
 	Post   *Post      `json:"post,omitempty"`
 	Forum  *Forum     `json:"forum,omitempty"`
