@@ -6,13 +6,13 @@ import (
 
 type ThreadQueryParams struct {
 	Desc  bool
-	Limit int
+	Limit uint64
 	Since time.Time
 }
 
 type UserQueryParams struct {
 	Desc  bool
-	Limit int
+	Limit uint64
 	Since string
 }
 
@@ -21,8 +21,8 @@ type PostQueryArgs struct {
 }
 
 type ThreadPostsQueryArgs struct {
-	Limit int
-	Since int
+	Limit uint64
+	Since uint64
 	Sort  string
 	Desc  bool
 }

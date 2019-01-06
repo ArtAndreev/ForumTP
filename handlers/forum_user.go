@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
 
@@ -148,12 +149,25 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 
 func GetForumUsers(w http.ResponseWriter, r *http.Request) {
 	params := &models.UserQueryParams{}
-	decoder.IgnoreUnknownKeys(true)
-	err := decoder.Decode(params, r.URL.Query())
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
+	query := r.URL.Query()
+	rawDesc := query.Get("desc")
+	var err error
+	if rawDesc != "" {
+		params.Desc, err = strconv.ParseBool(rawDesc)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 	}
+	rawLimit := query.Get("limit")
+	if rawLimit != "" {
+		params.Limit, err = strconv.ParseUint(rawLimit, 10, 64)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+	}
+	params.Since = query.Get("since")
 	res, err := queries.GetAllUsersInForum(mux.Vars(r)["slug"], params)
 	if err != nil {
 		switch err.(type) {

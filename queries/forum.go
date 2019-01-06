@@ -2,59 +2,49 @@ package queries
 
 import (
 	"database/sql"
-	"fmt"
+	"strings"
+
+	"github.com/lib/pq"
 
 	"github.com/ArtAndreev/ForumTP/models"
 )
 
-func CreateForum(f *models.Forum) (models.Forum, error) {
-	var res models.Forum
-	// check not null constraint
+func CreateForum(f *models.Forum) (*models.Forum, error) {
 	if f.ForumTitle == "" || f.ForumSlug == "" || f.ForumUser == "" {
-		return res, &NullFieldError{"Forum", "title and/or slug and/or user"}
+		return nil, &NullFieldError{"Forum", "title and/or slug and/or user"}
 	}
 
-	// check existence of forum
-	res, err := GetForumBySlug(f.ForumSlug)
+	res := &models.Forum{}
+	err := db.Get(
+		res,
+		`INSERT INTO forum (forum_title, forum_slug, forum_user)
+		VALUES ($1, $2, (SELECT nickname FROM forum_user WHERE nickname = $3)) RETURNING *`,
+		f.ForumTitle, f.ForumSlug, f.ForumUser)
 	if err != nil {
-		if _, ok := err.(*RecordNotFoundError); !ok {
-			return res, err // db error
+		pqErr := err.(*pq.Error)
+		switch pqErr.Code {
+		case UniqueViolationCode:
+			if strings.HasPrefix(pqErr.Detail, "Key (forum_slug)") {
+				res, err := GetForumBySlug(f.ForumSlug)
+				if err != nil {
+					return res, err
+				}
+				return res, &UniqueFieldValueAlreadyExistsError{"Forum", "slug"}
+			}
+		case NotNullViolationCode:
+			if pqErr.Column == "forum_user" {
+				return res, &RecordNotFoundError{"User", f.ForumUser}
+			}
 		}
-	} else { // record exists
-		return res, &UniqueFieldValueAlreadyExistsError{"Forum", "title and/or slug"}
-	}
-
-	// check existence of user
-	u, err := GetUserByNickname(f.ForumUser)
-	if err != nil {
 		return res, err
-	}
-
-	// insert
-	_, err = db.Exec(
-		"INSERT INTO forum (forum_title, forum_slug, forum_user) VALUES ($1, $2, $3)",
-		f.ForumTitle, f.ForumSlug, u.ForumUserID)
-	if err != nil {
-		return res, err
-	}
-
-	// return res
-	res = models.Forum{
-		ForumTitle: f.ForumTitle,
-		ForumSlug:  f.ForumSlug,
-		ForumUser:  u.Nickname,
 	}
 
 	return res, nil
 }
 
-func GetForumBySlug(s string) (models.Forum, error) {
-	res := models.Forum{}
-	err := db.Get(&res, `
-		SELECT forum_id, forum_title, forum_slug, u.nickname forum_user, threads, posts FROM forum f 
-		JOIN forum_user u ON f.forum_user = u.forum_user_id 
-		WHERE forum_slug = $1`,
-		s)
+func GetForumBySlug(s string) (*models.Forum, error) {
+	res := &models.Forum{}
+	err := db.Get(res, "SELECT * FROM forum	WHERE forum_slug = $1", s)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return res, &RecordNotFoundError{"Forum", s}
@@ -64,16 +54,14 @@ func GetForumBySlug(s string) (models.Forum, error) {
 	return res, nil
 }
 
-func GetForumSlugByID(id int) (string, error) {
-	res := ""
-	err := db.Get(&res, `
-		SELECT forum_slug FROM forum WHERE forum_id = $1`,
-		id)
+func CheckExistenceOfForum(s string) error {
+	err := db.QueryRow("SELECT FROM forum WHERE forum_slug = $1", s).Scan()
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return res, &RecordNotFoundError{"Forum", fmt.Sprintf("%v", id)}
+			return &RecordNotFoundError{"Forum", s}
 		}
-		return res, err
+		return err
 	}
-	return res, nil
+
+	return nil
 }

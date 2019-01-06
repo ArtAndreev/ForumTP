@@ -10,44 +10,36 @@ func ClearDatabase() error {
 		return err
 	}
 	defer tx.Rollback()
-	_, err = tx.Exec("DELETE FROM vote")
+	_, err = tx.Exec("TRUNCATE TABLE vote CASCADE")
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec("DELETE FROM post")
+	_, err = tx.Exec("TRUNCATE TABLE post CASCADE")
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec("DELETE FROM thread")
+	_, err = tx.Exec("TRUNCATE TABLE thread CASCADE")
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec("DELETE FROM forum")
+	_, err = tx.Exec("TRUNCATE TABLE forum CASCADE")
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec("DELETE FROM forum_user")
+	_, err = tx.Exec("TRUNCATE TABLE forum_user CASCADE")
 	if err != nil {
 		return err
 	}
 	return tx.Commit()
 }
 
-func GetDatabaseStatus() (models.Status, error) {
-	res := models.Status{}
-	err := db.Get(&res.User, "SELECT COUNT(*) FROM forum_user")
-	if err != nil {
-		return res, err
-	}
-	err = db.Get(&res.Forum, "SELECT COUNT(*) FROM forum")
-	if err != nil {
-		return res, err
-	}
-	err = db.Get(&res.Thread, "SELECT COUNT(*) FROM thread")
-	if err != nil {
-		return res, err
-	}
-	err = db.Get(&res.Post, "SELECT COUNT(*) FROM post")
+func GetDatabaseStatus() (*models.Status, error) {
+	res := &models.Status{}
+	err := db.Get(res, `SELECT "user", forum, thread, post
+		FROM (SELECT COUNT(*) AS "user" FROM forum_user) a
+		CROSS JOIN (SELECT COUNT(*) AS forum FROM forum) b
+		CROSS JOIN (SELECT COUNT(*) AS thread FROM thread) c
+		CROSS JOIN (SELECT COUNT(*) AS post FROM post) d;`)
 	if err != nil {
 		return res, err
 	}

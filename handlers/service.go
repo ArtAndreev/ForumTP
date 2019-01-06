@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/ArtAndreev/ForumTP/queries"
@@ -11,6 +12,7 @@ import (
 func ClearDatabase(w http.ResponseWriter, r *http.Request) {
 	err := queries.ClearDatabase()
 	if err != nil {
+		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -19,11 +21,13 @@ func ClearDatabase(w http.ResponseWriter, r *http.Request) {
 func GetDatabaseStatus(w http.ResponseWriter, r *http.Request) {
 	res, err := queries.GetDatabaseStatus()
 	if err != nil {
+		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	j, err := json.Marshal(res)
 	if err != nil {
+		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

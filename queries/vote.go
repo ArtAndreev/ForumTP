@@ -1,36 +1,39 @@
 package queries
 
 import (
+	"github.com/lib/pq"
+
 	"github.com/ArtAndreev/ForumTP/models"
 )
 
-func VoteForPost(v *models.Vote, path string) (models.Thread, error) {
-	res := models.Thread{}
+func VoteForPost(v *models.Vote, path string) (*models.Thread, error) {
 	if v.Nickname == "" {
-		return res, &NullFieldError{"Vote", "nickname"}
+		return nil, &NullFieldError{"Vote", "nickname"}
 	}
 	if v.Voice != -1 && v.Voice != 1 {
-		return res, &ValidationError{"Vote", "voice"}
+		return nil, &ValidationError{"Vote", "voice"}
 	}
 
-	// get thread by slug or id
-	t, err := GetThreadBySlugOrID(path)
+	threadID, err := GetThreadIDBySlugOrID(path)
 	if err != nil {
-		return res, err
+		return nil, err
 	}
 
-	// get user
-	u, err := GetUserByNickname(v.Nickname)
-	if err != nil {
-		return res, err
-	}
-
+	res := &models.Thread{}
 	_, err = db.Exec(`
-		INSERT INTO vote VALUES ($1, $2, $3)
+		INSERT INTO vote VALUES (
+			(SELECT nickname FROM forum_user WHERE nickname = $1), $2, $3
+		)
 		ON CONFLICT (nickname, thread) DO UPDATE SET voice = $3`,
-		u.ForumUserID, t.ThreadID, v.Voice)
+		v.Nickname, threadID, v.Voice)
+	if err != nil {
+		if pqErr := err.(*pq.Error); pqErr.Code == NotNullViolationCode && pqErr.Column == "nickname" {
+			return res, &RecordNotFoundError{"User", v.Nickname}
+		}
+		return res, err
+	}
 
-	res, err = GetThreadByID(t.ThreadID)
+	res, err = GetThreadByID(threadID)
 	if err != nil {
 		return res, err
 	}

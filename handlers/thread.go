@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/gorilla/mux"
 
@@ -77,8 +79,32 @@ func CreateThread(w http.ResponseWriter, r *http.Request) {
 
 func GetThreads(w http.ResponseWriter, r *http.Request) {
 	params := &models.ThreadQueryParams{}
-	decoder.IgnoreUnknownKeys(true)
-	err := decoder.Decode(params, r.URL.Query())
+	query := r.URL.Query()
+	rawDesc := query.Get("desc")
+	var err error
+	if rawDesc != "" {
+		params.Desc, err = strconv.ParseBool(rawDesc)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+	}
+	rawLimit := query.Get("limit")
+	if rawLimit != "" {
+		params.Limit, err = strconv.ParseUint(rawLimit, 10, 64)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+	}
+	rawTime := query.Get("since")
+	if rawTime != "" {
+		params.Since, err = time.Parse("2006-01-02T15:04:05.000Z07:00", rawTime)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+	}
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return

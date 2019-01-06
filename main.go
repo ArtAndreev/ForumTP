@@ -13,7 +13,7 @@ import (
 func main() {
 	r := mux.NewRouter()
 	api := r.PathPrefix("/api").Subrouter()
-	api.Use(handlers.ApplicationJsonMiddleware)
+	api.Use(handlers.ApplicationJSONMiddleware)
 
 	api.HandleFunc("/forum/create", handlers.CreateForum).Methods("POST")
 	api.HandleFunc("/forum/{slug}/create", handlers.CreateThread).Methods("POST")

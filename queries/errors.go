@@ -3,10 +3,14 @@ package queries
 import (
 	"errors"
 	"fmt"
+
+	"github.com/lib/pq"
 )
 
 var (
 	ErrParentPostIsNotInThisThread = errors.New("parent post is not found in this thread")
+	NotNullViolationCode           = pq.ErrorCode("23502")
+	UniqueViolationCode            = pq.ErrorCode("23505")
 )
 
 type ValidationError struct {

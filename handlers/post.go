@@ -169,11 +169,32 @@ func UpdatePost(w http.ResponseWriter, r *http.Request) {
 
 func GetThreadPosts(w http.ResponseWriter, r *http.Request) {
 	params := &models.ThreadPostsQueryArgs{}
-	decoder.IgnoreUnknownKeys(true)
-	err := decoder.Decode(params, r.URL.Query())
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
+	query := r.URL.Query()
+	rawLimit := query.Get("limit")
+	var err error
+	if rawLimit != "" {
+		params.Limit, err = strconv.ParseUint(rawLimit, 10, 64)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+	}
+	rawSince := query.Get("since")
+	if rawSince != "" {
+		params.Since, err = strconv.ParseUint(rawSince, 10, 64)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+	}
+	params.Sort = query.Get("sort")
+	rawDesc := query.Get("desc")
+	if rawDesc != "" {
+		params.Desc, err = strconv.ParseBool(rawDesc)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 	}
 	path := mux.Vars(r)["slug_or_id"]
 

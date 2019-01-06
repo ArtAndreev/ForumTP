@@ -2,28 +2,26 @@
 CREATE EXTENSION IF NOT EXISTS citext;
 
 CREATE TABLE IF NOT EXISTS forum_user (
-    forum_user_id serial PRIMARY KEY,
-    nickname citext UNIQUE,
+    nickname citext PRIMARY KEY,
     fullname varchar(128) NOT NULL,
     email citext UNIQUE NOT NULL,
     about text
 );
 
 CREATE TABLE IF NOT EXISTS forum (
-    forum_id serial PRIMARY KEY,
+    forum_slug citext PRIMARY KEY,
     forum_title varchar(128) NOT NULL,
-    forum_slug citext UNIQUE NOT NULL,
-    forum_user integer REFERENCES forum_user NOT NULL,
+    forum_user citext REFERENCES forum_user NOT NULL,
     threads integer DEFAULT 0,
     posts integer DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS thread (
     thread_id serial PRIMARY KEY,
-    forum integer REFERENCES forum NOT NULL,
+    forum citext REFERENCES forum NOT NULL,
     thread_slug citext UNIQUE,
     thread_title varchar(128) NOT NULL,
-    thread_author integer REFERENCES forum_user NOT NULL,
+    thread_author citext REFERENCES forum_user NOT NULL,
     thread_created timestamp with time zone DEFAULT now(),
     thread_message text NOT NULL,
     votes integer DEFAULT 0
@@ -31,18 +29,18 @@ CREATE TABLE IF NOT EXISTS thread (
 
 CREATE TABLE IF NOT EXISTS post (
     post_id serial PRIMARY KEY,
-    forum integer REFERENCES forum NOT NULL,
+    forum citext REFERENCES forum NOT NULL,
     thread integer REFERENCES thread NOT NULL,
     parent integer DEFAULT 0,
     path integer ARRAY,
-    post_author integer REFERENCES forum_user NOT NULL,
+    post_author citext REFERENCES forum_user NOT NULL,
     post_created timestamp with time zone DEFAULT now(),
     is_edited boolean DEFAULT FALSE NOT NULL,
     post_message text NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS vote (
-    nickname integer REFERENCES forum_user NOT NULL,
+    nickname citext REFERENCES forum_user NOT NULL,
     thread integer REFERENCES thread NOT NULL,
     voice integer NOT NULL,
     CONSTRAINT vote_constraint CHECK (voice IN (-1, 1)),
@@ -52,7 +50,7 @@ CREATE TABLE IF NOT EXISTS vote (
 -- +migrate StatementBegin
 CREATE OR REPLACE FUNCTION increment_post_counter() RETURNS TRIGGER AS $increment_post_counter$
     BEGIN
-        UPDATE forum SET posts = posts + 1 WHERE forum_id = NEW.forum;
+        UPDATE forum SET posts = posts + 1 WHERE forum_slug = NEW.forum;
         RETURN NEW;
     END;
 $increment_post_counter$ LANGUAGE plpgsql;
@@ -64,7 +62,7 @@ FOR EACH ROW EXECUTE PROCEDURE increment_post_counter();
 -- +migrate StatementBegin
 CREATE OR REPLACE FUNCTION increment_thread_counter() RETURNS TRIGGER AS $increment_thread_counter$
     BEGIN
-        UPDATE forum SET threads = threads + 1 WHERE forum_id = NEW.forum;
+        UPDATE forum SET threads = threads + 1 WHERE forum_slug = NEW.forum;
         RETURN NEW;
     END;
 $increment_thread_counter$ LANGUAGE plpgsql;

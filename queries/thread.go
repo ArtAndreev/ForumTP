@@ -4,73 +4,55 @@ import (
 	"database/sql"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
-	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 
 	"github.com/ArtAndreev/ForumTP/models"
 )
 
-func CreateThread(t *models.Thread) (models.Thread, error) {
-	res := models.Thread{}
+func CreateThread(t *models.Thread) (*models.Thread, error) {
 	if t.Forum == "" || t.ThreadTitle == "" || t.ThreadAuthor == "" {
-		return res, &NullFieldError{"Thread", "some value(-s) is/are null"}
+		return nil, &NullFieldError{"Thread", "some value(-s) is/are null"}
 	}
 
-	// check existence of forum
-	f, err := GetForumBySlug(t.Forum)
-	if err != nil {
-		return res, err
-	}
-
-	// check existence of user
-	u, err := GetUserByNickname(t.ThreadAuthor)
-	if err != nil {
-		return res, err
-	}
-
-	// check existence of thread
-	if t.ThreadSlug != nil {
-		res, err = GetThreadBySlug(*t.ThreadSlug)
-		if err != nil {
-			if _, ok := err.(*RecordNotFoundError); !ok {
-				return res, err // db error
-			}
-		} else { // record exists
-			return res, &UniqueFieldValueAlreadyExistsError{"Thread", "title"}
-		}
-	}
-
-	// insert
-	qres, err := db.Query(`
+	res := &models.Thread{}
+	err := db.Get(res, `
 		INSERT INTO thread (forum, thread_slug, thread_title, thread_author, thread_created, thread_message)
-		VALUES ($1, $2, $3, $4, $5, $6) RETURNING thread_id`,
-		f.ForumID, t.ThreadSlug, t.ThreadTitle, u.ForumUserID, t.ThreadCreated, t.ThreadMessage)
+		VALUES (
+			(SELECT forum_slug FROM forum WHERE forum_slug = $1), $2, $3, 
+			(SELECT nickname FROM forum_user WHERE nickname = $4), $5, $6
+		) RETURNING *`,
+		t.Forum, t.ThreadSlug, t.ThreadTitle, t.ThreadAuthor, t.ThreadCreated, t.ThreadMessage)
 	if err != nil {
+		pqErr := err.(*pq.Error)
+		switch pqErr.Code {
+		case UniqueViolationCode:
+			if strings.HasPrefix(pqErr.Detail, "Key (thread_slug)") {
+				res, err := GetThreadBySlug(*t.ThreadSlug)
+				if err != nil {
+					return res, err
+				}
+				return res, &UniqueFieldValueAlreadyExistsError{"Thread", "slug"}
+			}
+		case NotNullViolationCode:
+			if pqErr.Column == "thread_author" {
+				return res, &RecordNotFoundError{"User", t.ThreadAuthor}
+			}
+			if pqErr.Column == "forum" {
+				return res, &RecordNotFoundError{"Forum", t.Forum}
+			}
+		}
 		return res, err
 	}
 
-	lastInsertedID, err := getLastInsertedID(qres)
-	if err != nil {
-		return res, err
-	}
-
-	// get new res
-	res, err = GetThreadByID(lastInsertedID)
-	if err != nil {
-		return res, err
-	}
 	return res, nil
 }
 
-func GetThreadByID(id int) (models.Thread, error) {
-	res := models.Thread{}
-	err := db.Get(&res, `
-		SELECT thread_id, forum_slug forum, thread_slug, thread_title, u.nickname thread_author, thread_created, thread_message, votes FROM thread t
-		JOIN forum f ON t.forum = f.forum_id
-		JOIN forum_user u ON t.thread_author = u.forum_user_id
-		WHERE t.thread_id = $1
-		`, id)
+func GetThreadByID(id int) (*models.Thread, error) {
+	res := &models.Thread{}
+	err := db.Get(res, "SELECT * FROM thread WHERE thread_id = $1", id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return res, &RecordNotFoundError{"Thread", fmt.Sprintf("%v", id)}
@@ -80,31 +62,9 @@ func GetThreadByID(id int) (models.Thread, error) {
 	return res, nil
 }
 
-func txGetThreadByID(id int, tx *sqlx.Tx) (models.Thread, error) {
-	res := models.Thread{}
-	err := tx.Get(&res, `
-		SELECT thread_id, forum_slug forum, thread_slug, thread_title, u.nickname thread_author, thread_created, thread_message, votes FROM thread t
-		JOIN forum f ON t.forum = f.forum_id
-		JOIN forum_user u ON t.thread_author = u.forum_user_id
-		WHERE t.thread_id = $1
-		`, id)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return res, &RecordNotFoundError{"Thread", fmt.Sprintf("%v", id)}
-		}
-		return res, err
-	}
-	return res, nil
-}
-
-func GetThreadBySlug(s string) (models.Thread, error) {
-	res := models.Thread{}
-	err := db.Get(&res, `
-		SELECT thread_id, forum_slug forum, thread_slug, thread_title, u.nickname thread_author, thread_created, thread_message, votes FROM thread t
-		JOIN forum f ON t.forum = f.forum_id
-		JOIN forum_user u ON t.thread_author = u.forum_user_id
-		WHERE t.thread_slug = $1
-	`, s)
+func GetThreadBySlug(s string) (*models.Thread, error) {
+	res := &models.Thread{}
+	err := db.Get(res, "SELECT * FROM thread WHERE thread_slug = $1", s)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return res, &RecordNotFoundError{"Thread", s}
@@ -114,46 +74,7 @@ func GetThreadBySlug(s string) (models.Thread, error) {
 	return res, nil
 }
 
-func GetAllThreadsInForum(s string, params *models.ThreadQueryParams) ([]models.Thread, error) {
-	res := []models.Thread{}
-	// check existence of forum
-	_, err := GetForumBySlug(s)
-	if err != nil {
-		return res, err
-	}
-
-	q := `
-		SELECT thread_id, forum_slug forum, thread_slug, thread_title, u.nickname thread_author, thread_created, thread_message, votes FROM thread t
-		JOIN forum f ON t.forum = f.forum_id
-		JOIN forum_user u ON t.thread_author = u.forum_user_id
-		WHERE forum_slug = $1 `
-	var nt time.Time
-	if params.Since != nt {
-		if params.Desc {
-			q += "AND thread_created <= $2\n"
-		} else {
-			q += "AND thread_created >= $2\n"
-		}
-	}
-	q += "ORDER BY thread_created "
-	if params.Desc {
-		q += "DESC"
-	}
-	if params.Limit != 0 {
-		q += fmt.Sprintf("\nLIMIT %v", params.Limit)
-	}
-	if params.Since == nt {
-		err = db.Select(&res, q, s)
-	} else {
-		err = db.Select(&res, q, s, params.Since)
-	}
-	if err != nil {
-		return res, err
-	}
-	return res, nil
-}
-
-func GetThreadBySlugOrID(slugOrID string) (models.Thread, error) {
+func GetThreadBySlugOrID(slugOrID string) (*models.Thread, error) {
 	res, err := GetThreadBySlug(slugOrID)
 	if err != nil {
 		if _, ok := err.(*RecordNotFoundError); ok {
@@ -172,29 +93,119 @@ func GetThreadBySlugOrID(slugOrID string) (models.Thread, error) {
 	return res, nil
 }
 
-func UpdateThread(t *models.Thread, path string) (models.Thread, error) {
-	res := models.Thread{}
+func GetThreadIDByID(id int) (int, error) {
+	res := 0
+	err := db.Get(&res, "SELECT thread_id FROM thread WHERE thread_id = $1", id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return res, &RecordNotFoundError{"Thread", fmt.Sprintf("%v", id)}
+		}
+		return res, err
+	}
+	return res, nil
+}
+
+func GetThreadIDBySlug(s string) (int, error) {
+	res := 0
+	err := db.Get(&res, "SELECT thread_id FROM thread WHERE thread_slug = $1", s)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return res, &RecordNotFoundError{"Thread", s}
+		}
+		return res, err
+	}
+	return res, nil
+}
+
+func GetThreadIDBySlugOrID(slugOrID string) (int, error) {
+	res, err := GetThreadIDBySlug(slugOrID)
+	if err != nil {
+		if _, ok := err.(*RecordNotFoundError); ok {
+			id, convErr := strconv.Atoi(slugOrID)
+			if convErr != nil {
+				return res, err
+			}
+			res, err = GetThreadIDByID(id)
+			if err != nil {
+				return res, err
+			}
+		} else {
+			return res, err
+		}
+	}
+	return res, nil
+}
+
+func GetAllThreadsInForum(s string, params *models.ThreadQueryParams) ([]models.Thread, error) {
+	err := CheckExistenceOfForum(s)
+	if err != nil {
+		return nil, err
+	}
+
+	q := strings.Builder{}
+	q.WriteString("SELECT * FROM thread WHERE forum = $1 ")
+	var nt time.Time
+	if params.Since != nt {
+		if params.Desc {
+			q.WriteString("AND thread_created <= $2\n")
+		} else {
+			q.WriteString("AND thread_created >= $2\n")
+		}
+	}
+	q.WriteString("ORDER BY thread_created ")
+	if params.Desc {
+		q.WriteString("DESC")
+	}
+	if params.Limit != 0 {
+		q.WriteString(fmt.Sprintf("\nLIMIT %v", params.Limit))
+	}
+	res := []models.Thread{}
+	if params.Since == nt {
+		err = db.Select(&res, q.String(), s)
+	} else {
+		err = db.Select(&res, q.String(), s, params.Since)
+	}
+	if err != nil {
+		return res, err
+	}
+	return res, nil
+}
+
+func UpdateThread(t *models.Thread, path string) (*models.Thread, error) {
 	res, err := GetThreadBySlugOrID(path)
 	if err != nil {
 		return res, err
 	}
+
+	q := strings.Builder{}
+	q.WriteString("UPDATE thread SET ")
+	args := make([]interface{}, 0, 5)
+	continues := false
+	fieldCount := 0
 	if t.ThreadTitle != "" {
-		_, err := db.Exec(`
-			UPDATE thread SET thread_title = $1 WHERE thread_id = $2
-		`, t.ThreadTitle, res.ThreadID)
-		if err != nil {
-			return res, err
-		}
-		res.ThreadTitle = t.ThreadTitle
+		fieldCount++
+		q.WriteString("thread_title = $" + strconv.Itoa(fieldCount))
+		continues = true
+		args = append(args, t.ThreadTitle)
 	}
 	if t.ThreadMessage != "" {
-		_, err := db.Exec(`
-			UPDATE thread SET thread_message = $1 WHERE thread_id = $2
-		`, t.ThreadMessage, res.ThreadID)
-		if err != nil {
-			return res, err
+		fieldCount++
+		if continues {
+			q.WriteString(", thread_message = $" + strconv.Itoa(fieldCount))
+		} else {
+			q.WriteString("thread_message = $" + strconv.Itoa(fieldCount))
+
 		}
-		res.ThreadMessage = t.ThreadMessage
+		args = append(args, t.ThreadMessage)
 	}
+	q.WriteString(" WHERE thread_id = $" + strconv.Itoa(fieldCount+1) + " RETURNING *")
+	args = append(args, res.ThreadID)
+	err = db.Get(res, q.String(), args...)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return res, &RecordNotFoundError{"Thread", strconv.Itoa(res.ThreadID)}
+		}
+	}
+
 	return res, nil
 }
