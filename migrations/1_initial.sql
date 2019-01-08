@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS post (
     thread integer REFERENCES thread NOT NULL,
     parent integer DEFAULT 0,
     path integer ARRAY,
+    path1 integer DEFAULT 0,
     post_author citext REFERENCES forum_user NOT NULL,
     post_created timestamp with time zone DEFAULT now(),
     is_edited boolean DEFAULT FALSE NOT NULL,

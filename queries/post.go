@@ -64,9 +64,12 @@ func CreatePosts(p *models.PostList, path string) (*models.PostList, error) {
 			parent := models.Post{}
 			err = poststmt.QueryRow(v.Parent).Scan(
 				&parent.PostID, &parent.Forum, &parent.Thread, &parent.Parent, pq.Array(&parent.Path),
-				&parent.PostAuthor, &parent.PostCreated, &parent.IsEdited, &parent.PostMessage)
-			if err == sql.ErrNoRows {
-				return nil, ErrParentPostIsNotInThisThread // not exists
+				&parent.Path1, &parent.PostAuthor, &parent.PostCreated, &parent.IsEdited, &parent.PostMessage)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					return nil, ErrParentPostIsNotInThisThread // not exists
+				}
+				return nil, err
 			}
 			if parent.Thread != t.ThreadID {
 				return nil, ErrParentPostIsNotInThisThread
@@ -88,14 +91,18 @@ func CreatePosts(p *models.PostList, path string) (*models.PostList, error) {
 	}
 
 	stmt, err := tx.Prepare(pq.CopyIn("post", "post_id", "forum", "thread",
-		"parent", "path", "post_author", "post_created", "post_message"))
+		"parent", "path", "path1", "post_author", "post_created", "post_message"))
 	if err != nil {
 		return nil, err
 	}
 	defer stmt.Close()
 	for _, v := range *p {
+		p1 := v.PostID
+		if v.Parent != 0 {
+			p1 = int(v.Path[0])
+		}
 		_, err = stmt.Exec(v.PostID, t.Forum, t.ThreadID,
-			v.Parent, pq.Array(v.Path), v.PostAuthor, now, v.PostMessage)
+			v.Parent, pq.Array(v.Path), p1, v.PostAuthor, now, v.PostMessage)
 		if err != nil {
 			return nil, err
 		}
@@ -139,7 +146,7 @@ func CreatePosts(p *models.PostList, path string) (*models.PostList, error) {
 func GetPostByID(id int) (*models.Post, error) {
 	res := &models.Post{}
 	err := db.QueryRow("SELECT * FROM post WHERE post_id = $1", id).Scan(
-		&res.PostID, &res.Forum, &res.Thread, &res.Parent, pq.Array(&res.Path), &res.PostAuthor,
+		&res.PostID, &res.Forum, &res.Thread, &res.Parent, pq.Array(&res.Path), &res.Path1, &res.PostAuthor,
 		&res.PostCreated, &res.IsEdited, &res.PostMessage)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -291,20 +298,18 @@ func GetThreadPosts(slugOrID string, args *models.ThreadPostsQueryArgs) (*models
 			}
 		}
 	case "parent_tree":
-		q.Reset()
-		q.WriteString(`WITH root_posts AS (
-			SELECT p.post_id FROM post p `)
+		q.WriteString("WHERE p.path1 IN (SELECT p.post_id FROM post p ")
 		if args.Since > 0 {
 			q.WriteString("JOIN post sp ON sp.post_id = $2 ")
 			if args.Desc {
-				q.WriteString("WHERE p.path[1] < sp.path[1] AND p.thread = $1 AND p.parent = 0")
+				q.WriteString("WHERE p.path1 < sp.path1 AND p.thread = $1 AND p.parent = 0")
 			} else {
 				q.WriteString("WHERE p.path > sp.path AND p.thread = $1 AND p.parent = 0")
 			}
 		} else {
 			q.WriteString("WHERE p.thread = $1 AND p.parent = 0 ")
 		}
-		q.WriteString("ORDER BY p.path[1]")
+		q.WriteString("ORDER BY p.path1")
 		if args.Desc {
 			q.WriteString(" DESC")
 		}
@@ -315,11 +320,7 @@ func GetThreadPosts(slugOrID string, args *models.ThreadPostsQueryArgs) (*models
 				q.WriteString(" LIMIT $2")
 			}
 		}
-		q.WriteString(`)
-			SELECT p.post_id, p.forum, p.thread, p.parent, 
-				p.post_author, p.post_created, p.is_edited, p.post_message FROM post p
-				WHERE p.path[1] in (select post_id from root_posts)
-				ORDER BY p.path[1]`)
+		q.WriteString(`) ORDER BY p.path1`)
 		if args.Desc {
 			q.WriteString(" DESC")
 		}

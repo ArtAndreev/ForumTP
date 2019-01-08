@@ -11,6 +11,7 @@ type Post struct {
 	Thread      int       `json:"thread"`
 	Parent      int       `json:"parent"`
 	Path        []int64   `json:"-"`
+	Path1       int       `json:"-"`
 	PostAuthor  string    `json:"author" db:"post_author"`
 	PostCreated time.Time `json:"created" db:"post_created"`
 	IsEdited    bool      `json:"isEdited" db:"is_edited"`
