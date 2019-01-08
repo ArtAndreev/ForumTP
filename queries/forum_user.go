@@ -158,12 +158,12 @@ func GetAllUsersInForum(s string, params *models.UserQueryParams) (*models.Forum
 		WHERE uif.forum = $1`) // all post authors
 	if params.Since != "" {
 		if params.Desc {
-			q.WriteString(" AND nickname < $2")
+			q.WriteString(" AND forum_user < $2")
 		} else {
-			q.WriteString(" AND nickname > $2")
+			q.WriteString(" AND forum_user > $2")
 		}
 	}
-	q.WriteString(" ORDER BY nickname")
+	q.WriteString(" ORDER BY forum_user")
 	if params.Desc {
 		q.WriteString(" DESC")
 	}
