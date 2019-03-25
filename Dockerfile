@@ -49,5 +49,7 @@ COPY --from=builder /src/forum-api .
 COPY --from=builder /src/migrations ./migrations
 
 # 4. Start PostgreSQL and forum API server
+ENV METRICS_NS forum
+
 EXPOSE 5000
-CMD service postgresql start && ./forum-api
+CMD service postgresql start && ./forum-api -metrics_ns ${METRICS_NS}

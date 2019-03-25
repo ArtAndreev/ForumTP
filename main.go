@@ -1,19 +1,33 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+	metrics "github.com/ArtAndreev/highload-load-balancing/highload-metrics"
 
 	"github.com/ArtAndreev/ForumTP/handlers"
 	"github.com/ArtAndreev/ForumTP/queries"
 )
 
 func main() {
+	promNS := flag.String("metrics_ns", "forum", "namespace for prometheus metrics")
+	flag.Parse()
+
+	metrics.InitMetrics(*promNS)
+	prometheus.MustRegister(metrics.AccessHits)
+
 	r := mux.NewRouter()
+	r.Handle("/metrics", promhttp.Handler())
+
 	api := r.PathPrefix("/api").Subrouter()
 	api.Use(handlers.ApplicationJSONMiddleware)
+	api.Use(metrics.CountHitsMiddleware)
 
 	api.HandleFunc("/forum/create", handlers.CreateForum).Methods("POST")
 	api.HandleFunc("/forum/{slug}/create", handlers.CreateThread).Methods("POST")
